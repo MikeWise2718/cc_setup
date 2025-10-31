@@ -1,0 +1,16 @@
+[project]
+name = "cc_setup"
+version = "0.1.0"
+description = "Claude Code setup tool for copying artifacts into target projects"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "rich>=13.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = []

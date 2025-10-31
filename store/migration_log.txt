@@ -1,0 +1,171 @@
+
+================================================================================
+MIGRATION STARTED
+================================================================================
+[2025-10-31 17:16:58] INFO: Source base: d:\tac
+[2025-10-31 17:16:58] INFO: Store base: D:\python\cc_setup\store
+[2025-10-31 17:16:58] INFO: Timestamp: 2025-10-31 17:16:58
+
+================================================================================
+MIGRATING BASIC MODE FROM tac-6
+================================================================================
+[2025-10-31 17:16:58] INFO: Created target directory: D:\python\cc_setup\store\basic
+[2025-10-31 17:16:58] INFO: 
+Migrating settings.json...
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\settings.json -> D:\python\cc_setup\store\basic\settings.json
+[2025-10-31 17:16:58] INFO: 
+Migrating hooks...
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\hooks\notification.py -> D:\python\cc_setup\store\basic\hooks\notification.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\hooks\post_tool_use.py -> D:\python\cc_setup\store\basic\hooks\post_tool_use.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\hooks\pre_compact.py -> D:\python\cc_setup\store\basic\hooks\pre_compact.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\hooks\pre_tool_use.py -> D:\python\cc_setup\store\basic\hooks\pre_tool_use.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\hooks\stop.py -> D:\python\cc_setup\store\basic\hooks\stop.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\hooks\subagent_stop.py -> D:\python\cc_setup\store\basic\hooks\subagent_stop.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\hooks\user_prompt_submit.py -> D:\python\cc_setup\store\basic\hooks\user_prompt_submit.py
+[2025-10-31 17:16:58] SKIPPED: d:\tac\tac-6\.claude\hooks\utils - Skipping directory
+[2025-10-31 17:16:58] INFO: 
+Migrating commands...
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\bug.md -> D:\python\cc_setup\store\basic\commands\bug.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\chore.md -> D:\python\cc_setup\store\basic\commands\chore.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\classify_adw.md -> D:\python\cc_setup\store\basic\commands\classify_adw.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\classify_issue.md -> D:\python\cc_setup\store\basic\commands\classify_issue.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\commit.md -> D:\python\cc_setup\store\basic\commands\commit.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\conditional_docs.md -> D:\python\cc_setup\store\basic\commands\conditional_docs.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\document.md -> D:\python\cc_setup\store\basic\commands\document.md
+[2025-10-31 17:16:58] SKIPPED: d:\tac\tac-6\.claude\commands\e2e - Skipping directory
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\feature.md -> D:\python\cc_setup\store\basic\commands\feature.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\generate_branch_name.md -> D:\python\cc_setup\store\basic\commands\generate_branch_name.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\implement.md -> D:\python\cc_setup\store\basic\commands\implement.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\install.md -> D:\python\cc_setup\store\basic\commands\install.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\patch.md -> D:\python\cc_setup\store\basic\commands\patch.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\prepare_app.md -> D:\python\cc_setup\store\basic\commands\prepare_app.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\prime.md -> D:\python\cc_setup\store\basic\commands\prime.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\pull_request.md -> D:\python\cc_setup\store\basic\commands\pull_request.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\resolve_failed_e2e_test.md -> D:\python\cc_setup\store\basic\commands\resolve_failed_e2e_test.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\resolve_failed_test.md -> D:\python\cc_setup\store\basic\commands\resolve_failed_test.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\review.md -> D:\python\cc_setup\store\basic\commands\review.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\start.md -> D:\python\cc_setup\store\basic\commands\start.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\test.md -> D:\python\cc_setup\store\basic\commands\test.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\test_e2e.md -> D:\python\cc_setup\store\basic\commands\test_e2e.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\.claude\commands\tools.md -> D:\python\cc_setup\store\basic\commands\tools.md
+[2025-10-31 17:16:58] INFO: 
+Migrating scripts...
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\scripts\clear_issue_comments.sh -> D:\python\cc_setup\store\basic\scripts\clear_issue_comments.sh
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\scripts\copy_dot_env.sh -> D:\python\cc_setup\store\basic\scripts\copy_dot_env.sh
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\scripts\delete_pr.sh -> D:\python\cc_setup\store\basic\scripts\delete_pr.sh
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\scripts\expose_webhook.sh -> D:\python\cc_setup\store\basic\scripts\expose_webhook.sh
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\scripts\kill_trigger_webhook.sh -> D:\python\cc_setup\store\basic\scripts\kill_trigger_webhook.sh
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\scripts\reset_db.sh -> D:\python\cc_setup\store\basic\scripts\reset_db.sh
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\scripts\start.sh -> D:\python\cc_setup\store\basic\scripts\start.sh
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\scripts\stop_apps.sh -> D:\python\cc_setup\store\basic\scripts\stop_apps.sh
+[2025-10-31 17:16:58] INFO: 
+Migrating adws...
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\adws\adw_build.py -> D:\python\cc_setup\store\basic\adws\adw_build.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\adws\adw_document.py -> D:\python\cc_setup\store\basic\adws\adw_document.py
+[2025-10-31 17:16:58] SKIPPED: d:\tac\tac-6\adws\adw_modules - Skipping directory
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\adws\adw_patch.py -> D:\python\cc_setup\store\basic\adws\adw_patch.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\adws\adw_plan.py -> D:\python\cc_setup\store\basic\adws\adw_plan.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\adws\adw_plan_build.py -> D:\python\cc_setup\store\basic\adws\adw_plan_build.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\adws\adw_plan_build_document.py -> D:\python\cc_setup\store\basic\adws\adw_plan_build_document.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\adws\adw_plan_build_review.py -> D:\python\cc_setup\store\basic\adws\adw_plan_build_review.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\adws\adw_plan_build_test.py -> D:\python\cc_setup\store\basic\adws\adw_plan_build_test.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\adws\adw_plan_build_test_review.py -> D:\python\cc_setup\store\basic\adws\adw_plan_build_test_review.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\adws\adw_review.py -> D:\python\cc_setup\store\basic\adws\adw_review.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\adws\adw_sdlc.py -> D:\python\cc_setup\store\basic\adws\adw_sdlc.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\adws\adw_test.py -> D:\python\cc_setup\store\basic\adws\adw_test.py
+[2025-10-31 17:16:58] SKIPPED: d:\tac\tac-6\adws\adw_tests - Skipping directory
+[2025-10-31 17:16:58] SKIPPED: d:\tac\tac-6\adws\adw_triggers - Skipping directory
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-6\adws\README.md -> D:\python\cc_setup\store\basic\adws\README.md
+
+================================================================================
+MIGRATING ISO MODE FROM tac-7
+================================================================================
+[2025-10-31 17:16:58] INFO: Created target directory: D:\python\cc_setup\store\iso
+[2025-10-31 17:16:58] INFO: 
+Migrating settings.json...
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\settings.json -> D:\python\cc_setup\store\iso\settings.json
+[2025-10-31 17:16:58] INFO: 
+Migrating hooks...
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\hooks\notification.py -> D:\python\cc_setup\store\iso\hooks\notification.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\hooks\post_tool_use.py -> D:\python\cc_setup\store\iso\hooks\post_tool_use.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\hooks\pre_compact.py -> D:\python\cc_setup\store\iso\hooks\pre_compact.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\hooks\pre_tool_use.py -> D:\python\cc_setup\store\iso\hooks\pre_tool_use.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\hooks\stop.py -> D:\python\cc_setup\store\iso\hooks\stop.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\hooks\subagent_stop.py -> D:\python\cc_setup\store\iso\hooks\subagent_stop.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\hooks\user_prompt_submit.py -> D:\python\cc_setup\store\iso\hooks\user_prompt_submit.py
+[2025-10-31 17:16:58] SKIPPED: d:\tac\tac-7\.claude\hooks\utils - Skipping directory
+[2025-10-31 17:16:58] INFO: 
+Migrating commands...
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\bug.md -> D:\python\cc_setup\store\iso\commands\bug.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\chore.md -> D:\python\cc_setup\store\iso\commands\chore.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\classify_adw.md -> D:\python\cc_setup\store\iso\commands\classify_adw.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\classify_issue.md -> D:\python\cc_setup\store\iso\commands\classify_issue.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\cleanup_worktrees.md -> D:\python\cc_setup\store\iso\commands\cleanup_worktrees.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\commit.md -> D:\python\cc_setup\store\iso\commands\commit.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\conditional_docs.md -> D:\python\cc_setup\store\iso\commands\conditional_docs.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\document.md -> D:\python\cc_setup\store\iso\commands\document.md
+[2025-10-31 17:16:58] SKIPPED: d:\tac\tac-7\.claude\commands\e2e - Skipping directory
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\feature.md -> D:\python\cc_setup\store\iso\commands\feature.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\generate_branch_name.md -> D:\python\cc_setup\store\iso\commands\generate_branch_name.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\health_check.md -> D:\python\cc_setup\store\iso\commands\health_check.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\implement.md -> D:\python\cc_setup\store\iso\commands\implement.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\install.md -> D:\python\cc_setup\store\iso\commands\install.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\install_worktree.md -> D:\python\cc_setup\store\iso\commands\install_worktree.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\in_loop_review.md -> D:\python\cc_setup\store\iso\commands\in_loop_review.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\patch.md -> D:\python\cc_setup\store\iso\commands\patch.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\prepare_app.md -> D:\python\cc_setup\store\iso\commands\prepare_app.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\prime.md -> D:\python\cc_setup\store\iso\commands\prime.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\pull_request.md -> D:\python\cc_setup\store\iso\commands\pull_request.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\resolve_failed_e2e_test.md -> D:\python\cc_setup\store\iso\commands\resolve_failed_e2e_test.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\resolve_failed_test.md -> D:\python\cc_setup\store\iso\commands\resolve_failed_test.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\review.md -> D:\python\cc_setup\store\iso\commands\review.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\start.md -> D:\python\cc_setup\store\iso\commands\start.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\test.md -> D:\python\cc_setup\store\iso\commands\test.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\test_e2e.md -> D:\python\cc_setup\store\iso\commands\test_e2e.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\tools.md -> D:\python\cc_setup\store\iso\commands\tools.md
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\.claude\commands\track_agentic_kpis.md -> D:\python\cc_setup\store\iso\commands\track_agentic_kpis.md
+[2025-10-31 17:16:58] INFO: 
+Migrating scripts...
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\scripts\check_ports.sh -> D:\python\cc_setup\store\iso\scripts\check_ports.sh
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\scripts\clear_issue_comments.sh -> D:\python\cc_setup\store\iso\scripts\clear_issue_comments.sh
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\scripts\copy_dot_env.sh -> D:\python\cc_setup\store\iso\scripts\copy_dot_env.sh
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\scripts\delete_pr.sh -> D:\python\cc_setup\store\iso\scripts\delete_pr.sh
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\scripts\expose_webhook.sh -> D:\python\cc_setup\store\iso\scripts\expose_webhook.sh
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\scripts\kill_trigger_webhook.sh -> D:\python\cc_setup\store\iso\scripts\kill_trigger_webhook.sh
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\scripts\purge_tree.sh -> D:\python\cc_setup\store\iso\scripts\purge_tree.sh
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\scripts\reset_db.sh -> D:\python\cc_setup\store\iso\scripts\reset_db.sh
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\scripts\start.sh -> D:\python\cc_setup\store\iso\scripts\start.sh
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\scripts\stop_apps.sh -> D:\python\cc_setup\store\iso\scripts\stop_apps.sh
+[2025-10-31 17:16:58] INFO: 
+Migrating adws...
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\adws\adw_build_iso.py -> D:\python\cc_setup\store\iso\adws\adw_build_iso.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\adws\adw_document_iso.py -> D:\python\cc_setup\store\iso\adws\adw_document_iso.py
+[2025-10-31 17:16:58] SKIPPED: d:\tac\tac-7\adws\adw_modules - Skipping directory
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\adws\adw_patch_iso.py -> D:\python\cc_setup\store\iso\adws\adw_patch_iso.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\adws\adw_plan_build_document_iso.py -> D:\python\cc_setup\store\iso\adws\adw_plan_build_document_iso.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\adws\adw_plan_build_iso.py -> D:\python\cc_setup\store\iso\adws\adw_plan_build_iso.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\adws\adw_plan_build_review_iso.py -> D:\python\cc_setup\store\iso\adws\adw_plan_build_review_iso.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\adws\adw_plan_build_test_iso.py -> D:\python\cc_setup\store\iso\adws\adw_plan_build_test_iso.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\adws\adw_plan_build_test_review_iso.py -> D:\python\cc_setup\store\iso\adws\adw_plan_build_test_review_iso.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\adws\adw_plan_iso.py -> D:\python\cc_setup\store\iso\adws\adw_plan_iso.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\adws\adw_review_iso.py -> D:\python\cc_setup\store\iso\adws\adw_review_iso.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\adws\adw_sdlc_iso.py -> D:\python\cc_setup\store\iso\adws\adw_sdlc_iso.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\adws\adw_sdlc_zte_iso.py -> D:\python\cc_setup\store\iso\adws\adw_sdlc_zte_iso.py
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\adws\adw_ship_iso.py -> D:\python\cc_setup\store\iso\adws\adw_ship_iso.py
+[2025-10-31 17:16:58] SKIPPED: d:\tac\tac-7\adws\adw_tests - Skipping directory
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\adws\adw_test_iso.py -> D:\python\cc_setup\store\iso\adws\adw_test_iso.py
+[2025-10-31 17:16:58] SKIPPED: d:\tac\tac-7\adws\adw_triggers - Skipping directory
+[2025-10-31 17:16:58] COPIED: d:\tac\tac-7\adws\README.md -> D:\python\cc_setup\store\iso\adws\README.md
+
+================================================================================
+MIGRATION COMPLETE
+================================================================================
+[2025-10-31 17:16:58] INFO: Total files copied: 111
+[2025-10-31 17:16:58] INFO: Total files skipped: 10
+
+================================================================================
+MIGRATION SUMMARY
+================================================================================
+Files copied: 111
+Files skipped: 10
+Total processed: 121

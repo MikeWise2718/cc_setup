@@ -25,41 +25,128 @@ cd cc_setup
 uv sync
 ```
 
+### Option 1: Use with `uv run` (Recommended for Development)
+No additional setup needed. Just run commands with `uv run cc_setup` from the project directory.
+
+### Option 2: Install Globally (For System-Wide Access)
+Install cc_setup as a global tool to use the `cc_setup` command from anywhere:
+
+```bash
+# Install globally
+uv tool install .
+
+# Now you can use 'cc_setup' from any directory
+cc_setup --help
+
+# To uninstall
+uv tool uninstall cc_setup
+```
+
+**Note**: The `--force` flag may use cached builds. For guaranteed fresh installation, see the Updating Global Installation section below.
+
+## Updating Global Installation
+
+When you make changes to the code and want to update the globally installed version, follow these steps to ensure a clean rebuild:
+
+### Step 1: Bump the Version
+Edit `pyproject.toml` and increment the version number:
+
+```toml
+[project]
+name = "cc_setup"
+version = "0.3.0"  # Increment from 0.2.0
+```
+
+### Step 2: Uninstall and Reinstall
+```bash
+# Navigate to cc_setup directory
+cd cc_setup
+
+# Uninstall the old version
+uv tool uninstall cc_setup
+
+# Install the new version (this forces a fresh build)
+uv tool install .
+
+# Verify the new version is installed
+cc_setup -h
+```
+
+### Why Version Bumping is Necessary
+
+Using `uv tool install --force .` may use cached builds, causing your changes not to appear. Bumping the version ensures:
+- A fresh build from source
+- No cached artifacts are used
+- All changes are properly reflected
+
+### Development vs Production
+
+**For Development (no installation needed):**
+```bash
+# Run directly from source - changes take effect immediately
+uv run cc_setup -t /path/to/project -m basic
+```
+
+**For Production (global installation):**
+```bash
+# After bumping version and reinstalling
+cc_setup -t /path/to/project -m basic
+```
+
 ## Quick Start
 
 ### Dry Run (Analysis Only)
 Preview what would be copied without making changes:
 
 ```bash
-uv run cc_setup.py --target /path/to/project --mode basic
+uv run cc_setup --target /path/to/project --mode basic
+# Short form:
+uv run cc_setup -t /path/to/project -m basic
 ```
 
 ### Execute Basic Setup
 Copy artifacts for a standard single-worktree project:
 
 ```bash
-uv run cc_setup.py --target /path/to/project --mode basic --execute
+uv run cc_setup --target /path/to/project --mode basic --execute
+# Short form:
+uv run cc_setup -t /path/to/project -m basic -ex
 ```
 
 ### Execute Isolated Worktree Setup
 Copy artifacts for projects using isolated worktrees:
 
 ```bash
-uv run cc_setup.py --target /path/to/project --mode iso --execute
+uv run cc_setup --target /path/to/project --mode iso --execute
+# Short form:
+uv run cc_setup -t /path/to/project -m iso -ex
 ```
 
 ### Overwrite Existing Files
 Force overwrite of existing artifacts:
 
 ```bash
-uv run cc_setup.py --target /path/to/project --mode basic --execute --overwrite
+uv run cc_setup --target /path/to/project --mode basic --execute --overwrite
+# Short form:
+uv run cc_setup -t /path/to/project -m basic -ex -ov
 ```
 
 ### View Available Artifacts
 See what artifacts are included in each mode:
 
 ```bash
-uv run cc_setup.py --help-artifacts
+uv run cc_setup --help-artifacts
+# Short form:
+uv run cc_setup -ha
+```
+
+### View Usage Examples
+Display usage examples showing both long-form and short-form commands:
+
+```bash
+uv run cc_setup --help-examples
+# Short form:
+uv run cc_setup -hx
 ```
 
 ## Command-Line Options
@@ -67,10 +154,14 @@ uv run cc_setup.py --help-artifacts
 | Option | Short | Description |
 |--------|-------|-------------|
 | `--target` | `-t` | Target directory path (required) |
-| `--mode` | `-m` | Setup mode: `basic` or `iso` (required) |
-| `--execute` | `-e` | Actually copy files (default: dry-run) |
-| `--overwrite` | `-o` | Overwrite existing files (default: skip) |
-| `--help-artifacts` | | Show available artifacts for each mode |
+| `--mode` | `-m` | Setup mode: `basic` or `iso` (required for artifact mode) |
+| `--execute` | `-ex` | Actually perform operations (default: dry-run) |
+| `--overwrite` | `-ov` | Overwrite existing files (default: skip) |
+| `--gitignore` | `-gi` | Manage .gitignore for specified language (e.g., `python`, `csharp`) |
+| `--gitignore_execute` | `-gix` | GitIgnore operation: `compare`, `merge`, or `replace` (default: compare) |
+| `--gitignore_compare_mode` | `-gic` | Comparison mode: `diff` or `set` (default: diff) |
+| `--help-artifacts` | `-ha` | Show available artifacts for each mode |
+| `--help-examples` | `-hx` | Show usage examples with both long and short forms |
 | `--help` | `-h` | Show help message |
 
 ## Project Structure
@@ -144,33 +235,223 @@ target-project/
 └── trees/                  # Worktree directory (created by commands)
 ```
 
+## GitIgnore Management
+
+In addition to managing Claude Code artifacts, cc_setup can manage your project's `.gitignore` file using language-specific templates stored in `store/git/`.
+
+### Available Operations
+
+#### Compare (Default)
+Compare your project's `.gitignore` with the template using two different modes:
+
+**Diff Mode (default)** - Line-by-line unified diff:
+```bash
+uv run cc_setup --target /path/to/project --gitignore python
+# Short form:
+uv run cc_setup -t /path/to/project -gi python
+
+# or explicitly:
+uv run cc_setup --target /path/to/project --gitignore python --gitignore_compare_mode diff
+# Short form:
+uv run cc_setup -t /path/to/project -gi python -gic diff
+```
+
+Output shows:
+- Lines that would be added (green, + prefix)
+- Lines in your file but not in template (red, - prefix)
+- Context lines for reference
+
+**Set Mode** - Order-independent pattern comparison:
+```bash
+uv run cc_setup --target /path/to/project --gitignore python --gitignore_compare_mode set
+# Short form:
+uv run cc_setup -t /path/to/project -gi python -gic set
+```
+
+Output shows:
+- **Missing from Target** (green): Patterns in template but not in your .gitignore
+- **Extra in Target** (yellow): Custom patterns in your .gitignore but not in template
+- **Common Patterns** (cyan): Patterns present in both files
+- Statistics summary with pattern counts
+
+**When to use each mode:**
+- Use `diff` mode to see exact line-by-line changes including comments and order
+- Use `set` mode for semantic comparison when you only care about which patterns are missing or extra (order-independent)
+
+#### Merge
+Adds missing patterns from the template while preserving all existing entries:
+
+```bash
+# Preview what will be added (dry-run)
+uv run cc_setup --target /path/to/project --gitignore python --gitignore_execute merge
+# Short form:
+uv run cc_setup -t /path/to/project -gi python -gix merge
+
+# Execute merge
+uv run cc_setup --target /path/to/project --gitignore python --gitignore_execute merge --execute
+# Short form:
+uv run cc_setup -t /path/to/project -gi python -gix merge -ex
+```
+
+Features:
+- **Preserves all existing patterns** - nothing is removed
+- Creates `.gitignore.backup` before modifying
+- Adds new patterns with a header comment
+- Ideal for updating existing projects
+
+#### Replace
+Completely replaces your `.gitignore` with the template:
+
+```bash
+# Preview replacement (dry-run)
+uv run cc_setup --target /path/to/project --gitignore csharp --gitignore_execute replace
+# Short form:
+uv run cc_setup -t /path/to/project -gi csharp -gix replace
+
+# Execute replacement
+uv run cc_setup --target /path/to/project --gitignore csharp --gitignore_execute replace --execute
+# Short form:
+uv run cc_setup -t /path/to/project -gi csharp -gix replace -ex
+```
+
+Features:
+- Creates `.gitignore.backup` before replacing
+- **Warning**: Removes all existing custom patterns
+- Ideal for new projects or complete reset
+
+### Available Templates
+
+Currently supported languages:
+- **python** - Python projects (virtual environments, pytest, build artifacts)
+- **csharp** - C# / .NET projects (Visual Studio, build outputs, NuGet)
+
+View available templates:
+```bash
+ls store/git/
+```
+
+### GitIgnore Examples
+
+#### Example 1: New Python Project
+```bash
+# Create .gitignore for new Python project
+uv run cc_setup --target /path/to/new-python-project --gitignore python --gitignore_execute replace --execute
+# Short form:
+uv run cc_setup -t /path/to/new-python-project -gi python -gix replace -ex
+```
+
+#### Example 2: Update Existing Project
+```bash
+# First, see what's different (set mode for cleaner output)
+uv run cc_setup --target /path/to/existing-project --gitignore python --gitignore_compare_mode set
+# Short form:
+uv run cc_setup -t /path/to/existing-project -gi python -gic set
+
+# Add missing patterns (keeps your custom rules)
+uv run cc_setup --target /path/to/existing-project --gitignore python --gitignore_execute merge --execute
+# Short form:
+uv run cc_setup -t /path/to/existing-project -gi python -gix merge -ex
+```
+
+#### Example 3: Compare Reordered Files
+```bash
+# Set mode shows files are identical even if patterns are in different order
+uv run cc_setup --target /path/to/project --gitignore python --gitignore_compare_mode set
+# Short form:
+uv run cc_setup -t /path/to/project -gi python -gic set
+
+# Diff mode would show many differences due to order changes
+uv run cc_setup --target /path/to/project --gitignore python --gitignore_compare_mode diff
+# Short form:
+uv run cc_setup -t /path/to/project -gi python -gic diff
+```
+
+#### Example 4: Switch Languages
+```bash
+# Check current .gitignore against C# template
+uv run cc_setup --target /path/to/project --gitignore csharp
+# Short form:
+uv run cc_setup -t /path/to/project -gi csharp
+
+# Replace with C# template
+uv run cc_setup --target /path/to/project --gitignore csharp --gitignore_execute replace --execute
+# Short form:
+uv run cc_setup -t /path/to/project -gi csharp -gix replace -ex
+```
+
+#### Example 4: Restore from Backup
+If you need to restore your original `.gitignore`:
+```bash
+cd /path/to/project
+cp .gitignore.backup .gitignore
+```
+
+### Adding Custom Templates
+
+To add your own language templates:
+
+1. Create a new template file in `store/git/`:
+   ```bash
+   # Example: add JavaScript template
+   touch store/git/.gitignore_javascript
+   ```
+
+2. Add ignore patterns to the file:
+   ```gitignore
+   # Node.js
+   node_modules/
+   npm-debug.log
+
+   # Build output
+   dist/
+   build/
+   ```
+
+3. Use your new template:
+   ```bash
+   uv run cc_setup --target /path/to/project --gitignore javascript
+   # Short form:
+   uv run cc_setup -t /path/to/project -gi javascript
+   ```
+
+
 ## Usage Examples
 
 ### Example 1: New Project Setup (Basic)
 
 ```bash
 # First, do a dry run to see what will be copied
-uv run cc_setup.py --target D:\projects\my-new-app --mode basic
+uv run cc_setup --target D:\projects\my-new-app --mode basic
+# Short form:
+uv run cc_setup -t D:\projects\my-new-app -m basic
 
 # Review the output, then execute
-uv run cc_setup.py --target D:\projects\my-new-app --mode basic --execute
+uv run cc_setup --target D:\projects\my-new-app --mode basic --execute
+# Short form:
+uv run cc_setup -t D:\projects\my-new-app -m basic -ex
 ```
 
 ### Example 2: Upgrade to Isolated Worktrees
 
 ```bash
 # Add isolated worktree support to an existing project
-uv run cc_setup.py --target D:\projects\existing-app --mode iso --execute
+uv run cc_setup --target D:\projects\existing-app --mode iso --execute
+# Short form:
+uv run cc_setup -t D:\projects\existing-app -m iso -ex
 
 # Use --overwrite if you want to replace existing artifacts
-uv run cc_setup.py --target D:\projects\existing-app --mode iso --execute --overwrite
+uv run cc_setup --target D:\projects\existing-app --mode iso --execute --overwrite
+# Short form:
+uv run cc_setup -t D:\projects\existing-app -m iso -ex -ov
 ```
 
 ### Example 3: Check Available Artifacts
 
 ```bash
 # See detailed list of all artifacts
-uv run cc_setup.py --help-artifacts
+uv run cc_setup --help-artifacts
+# Short form:
+uv run cc_setup -ha
 ```
 
 ## Output Explained
@@ -304,7 +585,7 @@ The tool cannot find the `store/` directory. Ensure you're running the script fr
 
 ```bash
 cd /path/to/cc_setup
-uv run cc_setup.py --help-artifacts
+uv run cc_setup --help-artifacts
 ```
 
 ### "No artifacts found"

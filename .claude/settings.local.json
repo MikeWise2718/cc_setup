@@ -7,7 +7,15 @@
       "Bash(python migrate_to_store.py:*)",
       "Bash(test_target2/.claude/hooks/notification.py)",
       "Bash(git checkout:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(python:*)",
+      "Bash(./test_target/.claude/commands/bug.md)",
+      "Bash(/d/python/cc_setup/test_target/.gitignore)",
+      "Bash(cat:*)",
+      "Bash(README.md)",
+      "Bash(test_set_compare/.gitignore)",
+      "Bash(test_reorder/.gitignore)",
+      "Bash(cc_setup:*)"
     ],
     "deny": [],
     "ask": []

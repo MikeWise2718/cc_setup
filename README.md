@@ -535,27 +535,69 @@ The log contains:
 
 Shell scripts (`.sh` files) are automatically made executable on Unix-like systems.
 
-## Customizing Artifacts
+## Customizing Artifacts for Your Project
+
+**IMPORTANT**: The artifacts in `store/basic/` and `store/iso/` are provided as **templates** that require customization for your specific project.
+
+### After Deployment - Required Customization
+
+Once you've deployed artifacts to your target project, you must customize them:
+
+1. **Review `store/CUSTOMIZATION_GUIDE.md`** - Comprehensive guide with examples for different tech stacks
+2. **Update Scripts** (`scripts/` directory):
+   - `start.sh` - Set ports, directory paths, and start commands for your stack
+   - `stop_apps.sh` - Configure ports to match your application
+   - `reset_db.sh` - Customize for your database (or remove if not using a database)
+   - `copy_dot_env.sh` - Update paths (or remove if not using .env files)
+   - `expose_webhook.sh` - Configure tunnel provider (or remove if not needed)
+
+3. **Update Commands** (`.claude/commands/` directory):
+   - `install.md`, `start.md`, `prepare_app.md` - Update port numbers and paths
+   - `bug.md`, `chore.md`, `feature.md`, `patch.md` - Set test commands for your stack
+   - `test.md` - Replace example tests with your project's test suite
+   - `test_e2e.md` - Update application URL
+   - `conditional_docs.md` - Adjust paths to match your project structure
+
+4. **Review Settings** (`.claude/settings.json`):
+   - See `store/basic/SETTINGS_README.md` and `store/iso/SETTINGS_README.md`
+   - Add/remove permissions for your technology stack
+   - Keep: general tools (`mkdir`, `find`, `mv`, `cp`, `grep`, `ls`, `chmod`, `touch`, `Write`)
+   - Optional: language-specific tools (`uv:*` for Python, `npm:*` for Node.js, `go:*`, `cargo:*`, `dotnet:*`, etc.)
+
+### Common Customization Points
+
+- **Directory Structure**: Replace `app/server`, `app/client` with your actual paths (e.g., `backend/`, `frontend/`, `src/`, etc.)
+- **Port Numbers**: Update default ports (8000, 5173, 8001) to match your application
+- **Technology Stack**: Replace example commands (Python/uv, TypeScript/Bun, npm) with your stack's commands
+- **Database**: Customize database scripts or remove if not applicable
+- **Environment Files**: Adjust .env patterns or remove if not using environment files
+- **Webhooks**: Configure webhook infrastructure or remove if not needed
+
+### Technology Stack Examples
+
+The `store/CUSTOMIZATION_GUIDE.md` provides complete examples for:
+- Python (FastAPI/Flask + React)
+- Node.js (Express/NestJS)
+- Go
+- Rust
+- C# / .NET
+- Java/Maven
+- Multi-language/Monorepo projects
+
+### Managing Store Artifacts
 
 The local store makes it easy to customize which artifacts are included:
 
-### Adding Artifacts
-
+**Adding Artifacts:**
 1. Navigate to `store/basic/` or `store/iso/`
-2. Add your file to the appropriate category folder:
-   - `hooks/` for hook scripts
-   - `commands/` for slash commands
-   - `scripts/` for utility scripts
-   - `adws/` for Agent Developer Workflows
+2. Add your file to the appropriate category folder (`hooks/`, `commands/`, `scripts/`, `adws/`)
 3. The tool will automatically discover and include it
 
-### Removing Artifacts
-
-1. Simply delete the file from the store directory
+**Removing Artifacts:**
+1. Delete the file from the store directory
 2. The tool will no longer show or copy it
 
-### Updating Artifacts
-
+**Updating Artifacts:**
 1. Replace the file in the store directory
 2. Use `--overwrite` flag to update existing installations
 

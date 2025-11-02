@@ -2,7 +2,7 @@
 
 ## Variables
 
-PORT: 5173
+PORT: 8000  # TODO: Customize this to match your application's main port (check scripts/start.sh)
 
 ## Workflow
 

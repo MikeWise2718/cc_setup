@@ -1,6 +1,6 @@
 [project]
 name = "cc_setup"
-version = "0.3.0"
+version = "0.4.0"
 description = "Claude Code setup tool for copying artifacts into target projects"
 readme = "README.md"
 requires-python = ">=3.13"

@@ -34,10 +34,9 @@ issue_json: $3
 
 Focus on the following files:
 - `README.md` - Contains the project overview and instructions.
-- `app/server/**` - Contains the codebase server.
-- `app/client/**` - Contains the codebase client.
-- `scripts/**` - Contains the scripts to start and stop the server + client.
-- `adws/**` - Contains the AI Developer Workflow (ADW) scripts.
+- Source code directories (e.g., `src/**`, `lib/**`, `backend/**`, `frontend/**`, etc.) - Adjust based on your project structure
+- `scripts/**` - Contains utility scripts
+- `.claude/adws/**` - Contains the AI Developer Workflow (ADW) scripts if applicable
 
 - Read `.claude/commands/conditional_docs.md` to check if your task requires additional documentation
 - If your task matches any of the conditions listed, include those documentation files in the `Plan Format: Relevant Files` section of your plan
@@ -90,9 +89,19 @@ Execute every command to validate the bug is fixed with zero regressions.
 
 <If you created an E2E test, include the following validation step: "Read .claude/commands/test_e2e.md`, then read and execute your new E2E `.claude/commands/e2e/test_<descriptive_name>.md` test file to validate this functionality works.">
 
-- `cd app/server && uv run pytest` - Run server tests to validate the bug is fixed with zero regressions
-- `cd app/client && bun tsc --noEmit` - Run frontend tests to validate the bug is fixed with zero regressions
-- `cd app/client && bun run build` - Run frontend build to validate the bug is fixed with zero regressions
+- Run your project's test suite to validate the bug is fixed with zero regressions
+  Examples:
+  - Python: `cd backend && uv run pytest` or `pytest tests/`
+  - JavaScript/Node: `npm test` or `npm run test`
+  - Go: `go test ./...`
+  - Rust: `cargo test`
+  - .NET: `dotnet test`
+- Run your project's build/compilation to ensure no regressions
+  Examples:
+  - TypeScript: `tsc --noEmit` or `npm run build`
+  - Go: `go build ./...`
+  - Rust: `cargo build`
+  - .NET: `dotnet build`
 
 ## Notes
 <optionally list any additional notes or context that are relevant to the bug that will be helpful to the developer>

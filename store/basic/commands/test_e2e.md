@@ -7,7 +7,7 @@ Execute end-to-end (E2E) tests using Playwright browser automation (MCP Server).
 adw_id: $1 if provided, otherwise generate a random 8 character hex string
 agent_name: $2 if provided, otherwise use 'test_e2e'
 e2e_test_file: $3
-application_url: $4 if provided, otherwise use http://localhost:5173
+application_url: $4 if provided, otherwise use http://localhost:8000  # TODO: Customize default URL to match your application
 
 ## Instructions
 

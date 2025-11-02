@@ -13,19 +13,19 @@ This prompt helps you determine what documentation you should read based on the 
 
 - README.md
   - Conditions:
-    - When operating on anything under app/server
-    - When operating on anything under app/client
+    - When operating on source code directories (e.g., src/**, lib/**, backend/**, frontend/**, etc.)
     - When first understanding the project structure
-    - When you want to learn the commands to start or stop the server or client
+    - When you want to learn the commands to start or stop the application
 
-- app/client/src/style.css
+- Project-specific style/config files
   - Conditions:
-    - When you need to make changes to the client's style
+    - When you need to make changes to styling, configuration, or other project-specific files
+  - Examples: src/styles/**, config/**, etc. (paths vary by project)
 
 - .claude/commands/classify_adw.md
   - Conditions:
-    - When adding or removing new `adws/adw_*.py` files
+    - When adding or removing new `.claude/adws/adw_*.py` files
 
-- adws/README.md
+- .claude/adws/README.md
   - Conditions:
-    - When you're operating in the `adws/` directory
+    - When you're operating in the `.claude/adws/` directory

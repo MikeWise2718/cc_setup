@@ -1,12 +1,14 @@
-# Application Validation Test Suite
+# Application Validation Test Suite (TEMPLATE)
 
-Execute comprehensive validation tests for both frontend and backend components, returning results in a standardized JSON format for automated processing.
+Execute comprehensive validation tests for your application, returning results in a standardized JSON format for automated processing.
+
+**CUSTOMIZATION REQUIRED**: This file contains example tests for a Python/TypeScript stack. Replace with tests appropriate for your project's technology stack. See examples at the bottom of this file.
 
 ## Purpose
 
 Proactively identify and fix issues in the application before they impact users or developers. By running this comprehensive test suite, you can:
 - Detect syntax errors, type mismatches, and import failures
-- Identify broken tests or security vulnerabilities  
+- Identify broken tests or security vulnerabilities
 - Verify build processes and dependencies
 - Ensure the application is in a healthy state
 
@@ -30,46 +32,45 @@ TEST_COMMAND_TIMEOUT: 5 minutes
   - Timeout commands after `TEST_COMMAND_TIMEOUT`
   - IMPORTANT: If a test fails, stop processing tests and return the results thus far
 - Some tests may have dependencies (e.g., server must be stopped for port availability)
-- API health check is required
 - Test execution order is important - dependencies should be validated first
 - All file paths are relative to the project root
 - Always run `pwd` and `cd` before each test to ensure you're operating in the correct directory for the given test
 
 ## Test Execution Sequence
 
-### Backend Tests
+**TODO**: Customize these tests for your project. The examples below are for a Python backend + TypeScript frontend stack. Replace with your own tests.
+
+### Example Tests (Python Backend + TypeScript Frontend)
 
 1. **Python Syntax Check**
    - Preparation Command: None
-   - Command: `cd app/server && uv run python -m py_compile server.py main.py core/*.py`
-   - test_name: "python_syntax_check"
-   - test_purpose: "Validates Python syntax by compiling source files to bytecode, catching syntax errors like missing colons, invalid indentation, or malformed statements"
+   - Command: `cd backend && python -m py_compile *.py`
+   - test_name: "backend_syntax_check"
+   - test_purpose: "Validates Python syntax by compiling source files to bytecode"
 
 2. **Backend Code Quality Check**
    - Preparation Command: None
-   - Command: `cd app/server && uv run ruff check .`
+   - Command: `cd backend && ruff check . || pylint src/ || flake8 src/`
    - test_name: "backend_linting"
-   - test_purpose: "Validates Python code quality, identifies unused imports, style violations, and potential bugs"
+   - test_purpose: "Validates code quality, identifies unused imports, style violations, and potential bugs"
 
 3. **All Backend Tests**
    - Preparation Command: None
-   - Command: `cd app/server && uv run pytest tests/ -v --tb=short`
-   - test_name: "all_backend_tests"
-   - test_purpose: "Validates all backend functionality including file processing, SQL security, LLM integration, and API endpoints"
+   - Command: `cd backend && pytest tests/ -v --tb=short`
+   - test_name: "backend_tests"
+   - test_purpose: "Validates all backend functionality"
 
-### Frontend Tests
-
-4. **TypeScript Type Check**
+4. **TypeScript Type Check** (if applicable)
    - Preparation Command: None
-   - Command: `cd app/client && bun tsc --noEmit`
-   - test_name: "typescript_check"
-   - test_purpose: "Validates TypeScript type correctness without generating output files, catching type errors, missing imports, and incorrect function signatures"
+   - Command: `cd frontend && tsc --noEmit`
+   - test_name: "frontend_type_check"
+   - test_purpose: "Validates TypeScript type correctness without generating output files"
 
-5. **Frontend Build**
+5. **Frontend Build** (if applicable)
    - Preparation Command: None
-   - Command: `cd app/client && bun run build`
+   - Command: `cd frontend && npm run build`
    - test_name: "frontend_build"
-   - test_purpose: "Validates the complete frontend build process including bundling, asset optimization, and production compilation"
+   - test_purpose: "Validates the complete frontend build process"
 
 ## Report
 
@@ -101,15 +102,138 @@ TEST_COMMAND_TIMEOUT: 5 minutes
   {
     "test_name": "frontend_build",
     "passed": false,
-    "execution_command": "cd app/client && bun run build",
-    "test_purpose": "Validates TypeScript compilation, module resolution, and production build process for the frontend application",
+    "execution_command": "cd frontend && npm run build",
+    "test_purpose": "Validates TypeScript compilation, module resolution, and production build process",
     "error": "TS2345: Argument of type 'string' is not assignable to parameter of type 'number'"
   },
   {
-    "test_name": "all_backend_tests",
+    "test_name": "backend_tests",
     "passed": true,
-    "execution_command": "cd app/server && uv run pytest tests/ -v --tb=short",
-    "test_purpose": "Validates all backend functionality including file processing, SQL security, LLM integration, and API endpoints"
+    "execution_command": "cd backend && pytest tests/ -v --tb=short",
+    "test_purpose": "Validates all backend functionality"
   }
 ]
+```
+
+---
+
+## Technology Stack Examples
+
+### Node.js/JavaScript Project
+
+```markdown
+1. **JavaScript Syntax Check**
+   - Command: `npx eslint src/`
+   - test_name: "javascript_linting"
+   - test_purpose: "Validates JavaScript syntax and style"
+
+2. **Unit Tests**
+   - Command: `npm test`
+   - test_name: "unit_tests"
+   - test_purpose: "Validates application functionality"
+
+3. **Build**
+   - Command: `npm run build`
+   - test_name: "build"
+   - test_purpose: "Validates build process"
+```
+
+### Go Project
+
+```markdown
+1. **Go Syntax Check**
+   - Command: `go build ./...`
+   - test_name: "go_build"
+   - test_purpose: "Validates Go syntax and compilation"
+
+2. **Go Tests**
+   - Command: `go test ./... -v`
+   - test_name: "go_tests"
+   - test_purpose: "Validates application functionality"
+
+3. **Go Linting**
+   - Command: `golangci-lint run`
+   - test_name: "go_linting"
+   - test_purpose: "Validates code quality"
+```
+
+### Rust Project
+
+```markdown
+1. **Rust Check**
+   - Command: `cargo check`
+   - test_name: "rust_check"
+   - test_purpose: "Validates Rust syntax without producing binaries"
+
+2. **Rust Tests**
+   - Command: `cargo test`
+   - test_name: "rust_tests"
+   - test_purpose: "Validates application functionality"
+
+3. **Rust Clippy**
+   - Command: `cargo clippy -- -D warnings`
+   - test_name: "rust_linting"
+   - test_purpose: "Validates code quality with Rust's linter"
+
+4. **Rust Build**
+   - Command: `cargo build --release`
+   - test_name: "rust_build"
+   - test_purpose: "Validates production build"
+```
+
+### C# / .NET Project
+
+```markdown
+1. **.NET Build**
+   - Command: `dotnet build`
+   - test_name: "dotnet_build"
+   - test_purpose: "Validates C# compilation and builds"
+
+2. **.NET Tests**
+   - Command: `dotnet test`
+   - test_name: "dotnet_tests"
+   - test_purpose: "Validates application functionality"
+
+3. **.NET Format Check**
+   - Command: `dotnet format --verify-no-changes`
+   - test_name: "dotnet_format"
+   - test_purpose: "Validates code formatting"
+```
+
+### Java/Maven Project
+
+```markdown
+1. **Maven Compile**
+   - Command: `mvn compile`
+   - test_name: "maven_compile"
+   - test_purpose: "Validates Java compilation"
+
+2. **Maven Tests**
+   - Command: `mvn test`
+   - test_name: "maven_tests"
+   - test_purpose: "Validates application functionality"
+
+3. **Maven Package**
+   - Command: `mvn package`
+   - test_name: "maven_package"
+   - test_purpose: "Validates packaging process"
+```
+
+### Multi-Language/Monorepo Example
+
+```markdown
+1. **Backend Tests (Python)**
+   - Command: `cd services/api && pytest tests/`
+   - test_name: "api_tests"
+   - test_purpose: "Validates API service"
+
+2. **Worker Tests (Go)**
+   - Command: `cd services/worker && go test ./...`
+   - test_name: "worker_tests"
+   - test_purpose: "Validates worker service"
+
+3. **Frontend Build (TypeScript)**
+   - Command: `cd apps/web && npm run build`
+   - test_name: "web_build"
+   - test_purpose: "Validates web application build"
 ```

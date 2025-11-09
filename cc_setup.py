@@ -28,6 +28,69 @@ from rich_argparse import RichHelpFormatter
 console = Console()
 
 
+# Utility functions for version and install date management
+def get_version() -> str:
+    """Read version from pyproject.toml.
+
+    Returns:
+        Version string, or "unknown" if unable to read
+    """
+    try:
+        pyproject_path = Path(__file__).parent / "pyproject.toml"
+        if pyproject_path.exists():
+            with open(pyproject_path, "rb") as f:
+                data = tomllib.load(f)
+                return data.get("project", {}).get("version", "unknown")
+    except Exception:
+        pass
+    return "unknown"
+
+
+def get_metadata_file_path() -> Path:
+    """Get path to metadata file.
+
+    Returns:
+        Path to cc_setup_metadata.json in same directory as script
+    """
+    return Path(__file__).parent / "cc_setup_metadata.json"
+
+
+def get_install_date() -> Optional[str]:
+    """Read install date from metadata file.
+
+    Returns:
+        ISO 8601 formatted install date, or None if not available
+    """
+    try:
+        metadata_path = get_metadata_file_path()
+        if metadata_path.exists():
+            with open(metadata_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data.get("installed_at")
+    except Exception:
+        pass
+    return None
+
+
+def set_install_date() -> None:
+    """Write install date to metadata file if it doesn't exist.
+
+    Creates cc_setup_metadata.json with current timestamp.
+    Fails silently if unable to create file.
+    """
+    try:
+        metadata_path = get_metadata_file_path()
+        if not metadata_path.exists():
+            metadata = {
+                "installed_at": datetime.now(timezone.utc).isoformat()
+            }
+            with open(metadata_path, "w", encoding="utf-8") as f:
+                json.dump(metadata, f, indent=2)
+    except Exception:
+        # Fail silently - don't break the tool if we can't create metadata
+        pass
+
+
 class OperationLogger:
     """Handles JSONL logging of cc_setup operations to target repositories."""
 
@@ -48,15 +111,10 @@ class OperationLogger:
         Returns:
             Version string, or "unknown" if unable to read
         """
-        try:
-            pyproject_path = Path(__file__).parent / "pyproject.toml"
-            if pyproject_path.exists():
-                with open(pyproject_path, "rb") as f:
-                    data = tomllib.load(f)
-                    return data.get("project", {}).get("version", "unknown")
-        except Exception as e:
-            self.logger.warning(f"Failed to read version from pyproject.toml: {e}")
-        return "unknown"
+        version = get_version()
+        if version == "unknown":
+            self.logger.warning("Failed to read version from pyproject.toml")
+        return version
 
     def _serialize_path(self, obj: Any) -> Any:
         """Convert Path objects to strings for JSON serialization.
@@ -493,6 +551,49 @@ class CCSetup:
         except OSError:
             return False
 
+    def directories_are_identical(self, source: Path, target: Path) -> bool:
+        """Check if two directories have identical content.
+
+        Recursively compares all files in both directories, checking both
+        structure (same files exist) and content (files are identical).
+
+        Args:
+            source: Source directory path
+            target: Target directory path
+
+        Returns:
+            True if directories are identical, False otherwise
+
+        Note:
+            Returns False if either directory cannot be read or if they differ
+        """
+        try:
+            if not source.exists() or not target.exists():
+                return False
+            if not source.is_dir() or not target.is_dir():
+                return False
+
+            # Get all files in both directories (relative paths)
+            source_files = {f.relative_to(source) for f in source.rglob('*') if f.is_file()}
+            target_files = {f.relative_to(target) for f in target.rglob('*') if f.is_file()}
+
+            # Check if same files exist
+            if source_files != target_files:
+                return False
+
+            # Check if all files have identical content
+            for rel_path in source_files:
+                source_file = source / rel_path
+                target_file = target / rel_path
+                if not self.files_are_identical(source_file, target_file):
+                    return False
+
+            return True
+
+        except Exception as e:
+            self.logger.warning(f"Failed to compare directories {source} and {target}: {e}")
+            return False
+
     def count_files_in_directory(self, directory: Path) -> int:
         """Count the number of files recursively in a directory.
 
@@ -622,10 +723,8 @@ class CCSetup:
             # Check if files/directories are identical
             is_identical = False
             if exists and source_path.exists():
-                # For directories, we don't do deep comparison (too expensive)
-                # Just mark as not identical if it's a directory
                 if artifact.is_directory:
-                    is_identical = False
+                    is_identical = self.directories_are_identical(source_path, target_path)
                 else:
                     is_identical = self.files_are_identical(source_path, target_path)
 
@@ -1391,9 +1490,73 @@ def show_examples():
     console.print("\n")
 
 
+class CustomArgumentParser(argparse.ArgumentParser):
+    """Custom ArgumentParser with enhanced error formatting."""
+
+    def error(self, message: str) -> None:
+        """Override error method to provide colorful, highlighted error messages.
+
+        Args:
+            message: Error message from argparse
+        """
+        import re
+
+        # Display usage
+        self.print_usage(sys.stderr)
+
+        # Parse the message to highlight parameter names
+        # Look for patterns like --target, -t, --mode, etc.
+        highlighted_message = message
+
+        # Find all --parameter or -p patterns and highlight them
+        param_pattern = r'(--[\w-]+|-[a-zA-Z])'
+        parts = re.split(param_pattern, message)
+
+        # Build highlighted message
+        console.print()
+        console.print("[bold red]Error:[/bold red] ", end="")
+
+        for part in parts:
+            if re.match(param_pattern, part):
+                # This is a parameter - highlight it
+                console.print(f"[bold yellow]{part}[/bold yellow]", end="")
+            else:
+                # Regular text
+                console.print(f"[red]{part}[/red]", end="")
+
+        console.print()  # New line at the end
+        sys.exit(2)
+
+
+def show_version() -> None:
+    """Display version and install date information."""
+    version = get_version()
+    install_date = get_install_date()
+
+    # Format install date nicely
+    if install_date:
+        try:
+            dt = datetime.fromisoformat(install_date)
+            formatted_date = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+        except Exception:
+            formatted_date = install_date
+    else:
+        formatted_date = "unknown"
+
+    version_text = f"""[bold cyan]cc_setup[/bold cyan] - Claude Code Setup Tool
+
+[bold]Version:[/bold] [green]{version}[/green]
+[bold]Installed:[/bold] [cyan]{formatted_date}[/cyan]"""
+
+    console.print(Panel(version_text, box=box.ROUNDED, border_style="blue"))
+
+
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(
+    # Track install date on first run
+    set_install_date()
+
+    parser = CustomArgumentParser(
         description="Claude Code Setup Tool - Copy artifacts and manage .gitignore files\n\nFor usage examples, run: cc_setup --help-examples",
         formatter_class=RichHelpFormatter
     )
@@ -1420,6 +1583,12 @@ def main():
         "--overwrite", "-ov",
         action="store_true",
         help="Overwrite existing files (default: skip existing files)"
+    )
+
+    parser.add_argument(
+        "--version", "-v",
+        action="store_true",
+        help="Show version and install date information"
     )
 
     parser.add_argument(
@@ -1457,6 +1626,11 @@ def main():
 
     args = parser.parse_args()
 
+    # Handle --version
+    if args.version:
+        show_version()
+        return 0
+
     # Handle --help-artifacts
     if args.help_artifacts:
         show_help_artifacts()
@@ -1469,7 +1643,7 @@ def main():
 
     # Validate required arguments
     if not args.target:
-        parser.error("--target is required (unless using --help-artifacts or --help-examples)")
+        parser.error("--target is required (unless using --version, --help-artifacts, or --help-examples)")
 
     # If gitignore is specified, mode is not required
     if args.gitignore:

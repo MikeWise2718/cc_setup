@@ -7,12 +7,14 @@ A utility to copy Claude Code artifacts from local store into target projects.
 import argparse
 import difflib
 import hashlib
+import json
 import logging
 import shutil
 import sys
-from datetime import datetime
+import tomllib
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict, Any
 
 from rich.console import Console
 from rich.panel import Panel
@@ -26,16 +28,102 @@ from rich_argparse import RichHelpFormatter
 console = Console()
 
 
+class OperationLogger:
+    """Handles JSONL logging of cc_setup operations to target repositories."""
+
+    def __init__(self, target_dir: Path, logger: logging.Logger):
+        """Initialize the operation logger.
+
+        Args:
+            target_dir: Target directory where .claude/cc_setup.log.jsonl will be created
+            logger: Standard logger for logging errors in JSONL logging itself
+        """
+        self.target_dir = target_dir
+        self.logger = logger
+        self.version = self._read_version()
+
+    def _read_version(self) -> str:
+        """Read version from pyproject.toml.
+
+        Returns:
+            Version string, or "unknown" if unable to read
+        """
+        try:
+            pyproject_path = Path(__file__).parent / "pyproject.toml"
+            if pyproject_path.exists():
+                with open(pyproject_path, "rb") as f:
+                    data = tomllib.load(f)
+                    return data.get("project", {}).get("version", "unknown")
+        except Exception as e:
+            self.logger.warning(f"Failed to read version from pyproject.toml: {e}")
+        return "unknown"
+
+    def _serialize_path(self, obj: Any) -> Any:
+        """Convert Path objects to strings for JSON serialization.
+
+        Args:
+            obj: Object to serialize
+
+        Returns:
+            Serializable version of the object
+        """
+        if isinstance(obj, Path):
+            return str(obj)
+        elif isinstance(obj, dict):
+            return {k: self._serialize_path(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._serialize_path(item) for item in obj]
+        return obj
+
+    def log_operation(self, operation_data: Dict[str, Any]) -> None:
+        """Write operation data to JSONL log file.
+
+        Args:
+            operation_data: Dictionary containing operation details
+        """
+        try:
+            # Ensure .claude directory exists
+            claude_dir = self.target_dir / ".claude"
+            claude_dir.mkdir(parents=True, exist_ok=True)
+
+            # Path to JSONL log file
+            log_path = claude_dir / "cc_setup.log.jsonl"
+
+            # Add timestamp and version to operation data
+            log_entry = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "version": self.version,
+                **operation_data
+            }
+
+            # Serialize Path objects
+            log_entry = self._serialize_path(log_entry)
+
+            # Append to JSONL file (one JSON object per line)
+            with open(log_path, "a", encoding="utf-8") as f:
+                json.dump(log_entry, f, ensure_ascii=False)
+                f.write("\n")
+
+            self.logger.info(f"JSONL log entry written to {log_path}")
+
+        except Exception as e:
+            # Don't fail the operation if logging fails
+            error_msg = f"Failed to write JSONL log: {e}"
+            self.logger.error(error_msg)
+            console.print(f"[yellow]⚠ Warning: {error_msg}[/yellow]")
+
+
 class ArtifactDefinition:
     """Defines a single artifact to be copied."""
 
     def __init__(self, filename: str, source_path: Path, category: str,
-                 target_subdir: str, description: str = ""):
+                 target_subdir: str, description: str = "", is_directory: bool = False):
         self.filename = filename
         self.source_path = source_path
         self.category = category
         self.target_subdir = target_subdir
         self.description = description
+        self.is_directory = is_directory
 
 
 class ArtifactStore:
@@ -106,6 +194,31 @@ class ArtifactStore:
                         description=desc
                     ))
 
+            # Special handling for adws category - discover subdirectories
+            if category_dir == "adws":
+                adws_subdirs = ["adw_modules", "adw_tests", "adw_triggers"]
+                for subdir_name in adws_subdirs:
+                    subdir_path = category_path / subdir_name
+                    if subdir_path.exists() and subdir_path.is_dir():
+                        # Determine description for subdirectory
+                        if subdir_name == "adw_modules":
+                            desc = "ADW Modules Directory"
+                        elif subdir_name == "adw_tests":
+                            desc = "ADW Tests Directory"
+                        elif subdir_name == "adw_triggers":
+                            desc = "ADW Triggers Directory"
+                        else:
+                            desc = f"ADW Directory: {subdir_name}"
+
+                        artifacts.append(ArtifactDefinition(
+                            filename=subdir_name,
+                            source_path=subdir_path,
+                            category=category_name,
+                            target_subdir=target_subdir,
+                            description=desc,
+                            is_directory=True
+                        ))
+
         return artifacts
 
     def validate_store(self, mode: str) -> Tuple[bool, List[str]]:
@@ -163,7 +276,7 @@ class FileOperation:
 
     def __init__(self, artifact: ArtifactDefinition, source_path: Path,
                  target_path: Path, exists: bool, is_identical: bool,
-                 will_copy: bool, will_overwrite: bool):
+                 will_copy: bool, will_overwrite: bool, file_count: int = 1):
         self.artifact = artifact
         self.source_path = source_path
         self.target_path = target_path
@@ -171,6 +284,7 @@ class FileOperation:
         self.is_identical = is_identical
         self.will_copy = will_copy
         self.will_overwrite = will_overwrite
+        self.file_count = file_count  # Number of files (1 for files, N for directories)
         self.status = self._determine_status()
 
     def _determine_status(self) -> str:
@@ -211,6 +325,7 @@ class CCSetup:
         self.artifact_store = ArtifactStore()
         self.logger = self._setup_logging()
         self.operations: List[FileOperation] = []
+        self.operation_logger = None  # Will be initialized after target_dir is validated
 
     def _setup_logging(self) -> logging.Logger:
         """Set up logging to file."""
@@ -254,6 +369,90 @@ class CCSetup:
         self.logger.info(f"Local artifact store validated for mode: {self.config.mode}")
         return True
 
+    def _collect_artifact_operation_data(self, result: str, error_message: Optional[str] = None) -> Dict[str, Any]:
+        """Collect data for artifact operations.
+
+        Args:
+            result: Operation result ("success", "error", or "cancelled")
+            error_message: Optional error message if result is "error"
+
+        Returns:
+            Dictionary containing operation data for JSONL logging
+        """
+        operation_data = {
+            "operation_type": "artifact",
+            "mode": self.config.mode,
+            "target_dir": self.config.target_dir,
+            "execute": self.config.execute,
+            "overwrite": self.config.overwrite,
+            "result": result,
+            "statistics": {
+                "files_to_copy": self.config.files_to_copy,
+                "files_exist": self.config.files_exist,
+                "files_identical": self.config.files_identical,
+                "files_different": self.config.files_different,
+                "files_to_overwrite": self.config.files_to_overwrite,
+                "files_copied": self.config.files_copied,
+                "files_skipped": self.config.files_skipped,
+            },
+            "artifacts": []
+        }
+
+        # Add artifact details
+        for op in self.operations:
+            artifact_entry = {
+                "filename": op.artifact.filename,
+                "category": op.artifact.category,
+                "target_subdir": op.artifact.target_subdir,
+                "status": op.status,
+                "action": op.get_action(self.config.execute),
+                "exists": op.exists,
+                "is_identical": op.is_identical,
+            }
+            operation_data["artifacts"].append(artifact_entry)
+
+        # Add error message if present
+        if error_message:
+            operation_data["error_message"] = error_message
+
+        return operation_data
+
+    def _collect_gitignore_operation_data(self, result: str, error_message: Optional[str] = None) -> Dict[str, Any]:
+        """Collect data for gitignore operations.
+
+        Args:
+            result: Operation result ("success", "error", or "cancelled")
+            error_message: Optional error message if result is "error"
+
+        Returns:
+            Dictionary containing operation data for JSONL logging
+        """
+        operation_data = {
+            "operation_type": "gitignore",
+            "mode": self.config.gitignore_lang,
+            "target_dir": self.config.target_dir,
+            "execute": self.config.execute,
+            "gitignore_operation": self.config.gitignore_execute,
+            "result": result,
+        }
+
+        # Add comparison mode if it's a compare operation
+        if self.config.gitignore_execute == "compare":
+            operation_data["comparison_mode"] = self.config.gitignore_compare_mode
+
+        # Add statistics if available
+        if self.config.gitignore_execute in ["merge", "replace"]:
+            operation_data["statistics"] = {
+                "lines_added": self.config.gitignore_lines_added,
+                "lines_removed": self.config.gitignore_lines_removed,
+            }
+
+        # Add error message if present
+        if error_message:
+            operation_data["error_message"] = error_message
+
+        return operation_data
+
     def get_file_hash(self, file_path: Path) -> str:
         """Calculate SHA-256 hash of file contents.
 
@@ -293,6 +492,23 @@ class CCSetup:
             return self.get_file_hash(source) == self.get_file_hash(target)
         except OSError:
             return False
+
+    def count_files_in_directory(self, directory: Path) -> int:
+        """Count the number of files recursively in a directory.
+
+        Args:
+            directory: Directory path to count files in
+
+        Returns:
+            Total number of files in directory and subdirectories
+        """
+        try:
+            if not directory.exists() or not directory.is_dir():
+                return 0
+            return len([f for f in directory.rglob('*') if f.is_file()])
+        except Exception as e:
+            self.logger.warning(f"Failed to count files in {directory}: {e}")
+            return 0
 
     def get_gitignore_template_path(self, lang: str) -> Optional[Path]:
         """Get path to gitignore template for specified language.
@@ -403,30 +619,45 @@ class CCSetup:
 
             exists = target_path.exists()
 
-            # Check if files are identical
+            # Check if files/directories are identical
             is_identical = False
             if exists and source_path.exists():
-                is_identical = self.files_are_identical(source_path, target_path)
+                # For directories, we don't do deep comparison (too expensive)
+                # Just mark as not identical if it's a directory
+                if artifact.is_directory:
+                    is_identical = False
+                else:
+                    is_identical = self.files_are_identical(source_path, target_path)
 
-            # Don't copy if files are identical, even with --overwrite flag
-            will_copy = (not exists or (self.config.overwrite and not is_identical)) and source_path.exists()
-            will_overwrite = exists and self.config.overwrite and source_path.exists() and not is_identical
+            # For directories: copy if doesn't exist OR if overwrite is enabled
+            # For files: don't copy if identical, even with --overwrite flag
+            if artifact.is_directory:
+                will_copy = (not exists or self.config.overwrite) and source_path.exists()
+                will_overwrite = exists and self.config.overwrite and source_path.exists()
+            else:
+                will_copy = (not exists or (self.config.overwrite and not is_identical)) and source_path.exists()
+                will_overwrite = exists and self.config.overwrite and source_path.exists() and not is_identical
+
+            # Count files for directories, 1 for regular files
+            file_count = 1
+            if artifact.is_directory and source_path.exists():
+                file_count = self.count_files_in_directory(source_path)
 
             operation = FileOperation(artifact, source_path, target_path,
-                                     exists, is_identical, will_copy, will_overwrite)
+                                     exists, is_identical, will_copy, will_overwrite, file_count)
             self.operations.append(operation)
 
-            # Update statistics
+            # Update statistics (count actual files for directories)
             if will_copy and not will_overwrite:
-                self.config.files_to_copy += 1
+                self.config.files_to_copy += file_count
             if exists:
-                self.config.files_exist += 1
+                self.config.files_exist += file_count
                 if is_identical:
-                    self.config.files_identical += 1
+                    self.config.files_identical += file_count
                 else:
-                    self.config.files_different += 1
+                    self.config.files_different += file_count
             if will_overwrite:
-                self.config.files_to_overwrite += 1
+                self.config.files_to_overwrite += file_count
 
         self.logger.info(f"Analysis complete: {len(self.operations)} operations planned")
         self.logger.info(f"Files to copy: {self.config.files_to_copy}")
@@ -491,17 +722,27 @@ Store: [dim]{self.artifact_store.store_base_path}[/dim]"""
             else:
                 style = "green"
 
+            # For directories, show file count
+            filename_display = op.artifact.filename
+            if op.artifact.is_directory and op.file_count > 1:
+                filename_display = f"{op.artifact.filename} ({op.file_count} files)"
+
             table.add_row(
                 op.artifact.category,
-                op.artifact.filename,
+                filename_display,
                 op.status,
                 op.get_action(False),
                 style=style
             )
 
-            self.logger.info(f"{op.artifact.category}: {op.artifact.filename} - "
-                           f"{op.status} - {op.get_action(False)}"
-                           f"{' (identical)' if op.is_identical else ''}")
+            # Log with file count if directory
+            log_msg = f"{op.artifact.category}: {op.artifact.filename}"
+            if op.artifact.is_directory and op.file_count > 1:
+                log_msg += f" ({op.file_count} files)"
+            log_msg += f" - {op.status} - {op.get_action(False)}"
+            if op.is_identical:
+                log_msg += " (identical)"
+            self.logger.info(log_msg)
 
         console.print(table)
 
@@ -558,21 +799,41 @@ Store: [dim]{self.artifact_store.store_base_path}[/dim]"""
 
                 if op.will_copy:
                     try:
-                        shutil.copy2(op.source_path, op.target_path)
+                        # Handle directory artifacts
+                        if op.artifact.is_directory:
+                            # For directories, use copytree
+                            if op.target_path.exists():
+                                # If overwrite is enabled and directory exists, remove it first
+                                if self.config.overwrite:
+                                    shutil.rmtree(op.target_path)
+                                    shutil.copytree(op.source_path, op.target_path)
+                                # If not overwriting, skip (will_copy should be False, but double-check)
+                            else:
+                                # Directory doesn't exist, copy it
+                                shutil.copytree(op.source_path, op.target_path)
 
-                        # Set executable permissions for .sh files on Unix
-                        if op.artifact.filename.endswith('.sh') and sys.platform != 'win32':
-                            op.target_path.chmod(0o755)
+                            self.config.files_copied += op.file_count
+                            self.logger.info(f"Copied directory: {op.artifact.filename} ({op.file_count} files) -> {op.target_path}")
+                        else:
+                            # Handle file artifacts (existing logic)
+                            shutil.copy2(op.source_path, op.target_path)
 
-                        self.config.files_copied += 1
-                        self.logger.info(f"Copied: {op.artifact.filename} -> {op.target_path}")
+                            # Set executable permissions for .sh files on Unix
+                            if op.artifact.filename.endswith('.sh') and sys.platform != 'win32':
+                                op.target_path.chmod(0o755)
+
+                            self.config.files_copied += op.file_count
+                            self.logger.info(f"Copied: {op.artifact.filename} -> {op.target_path}")
 
                     except Exception as e:
                         console.print(f"[red]✗ Failed to copy {op.artifact.filename}: {e}[/red]")
                         self.logger.error(f"Failed to copy {op.artifact.filename}: {e}")
                 else:
-                    self.config.files_skipped += 1
-                    self.logger.info(f"Skipped: {op.artifact.filename}")
+                    self.config.files_skipped += op.file_count
+                    skip_msg = f"Skipped: {op.artifact.filename}"
+                    if op.artifact.is_directory and op.file_count > 1:
+                        skip_msg += f" ({op.file_count} files)"
+                    self.logger.info(skip_msg)
 
                 progress.update(task, advance=1)
 
@@ -907,6 +1168,9 @@ Template: [dim]{template_path}[/dim]"""
             if not self.validate_target_directory():
                 return 1
 
+            # Initialize operation logger after target directory is validated
+            self.operation_logger = OperationLogger(self.config.target_dir, self.logger)
+
             console.print(f"\n[green]✓ Template found: {template_path.name}[/green]")
 
             # Execute operation
@@ -924,15 +1188,32 @@ Template: [dim]{template_path}[/dim]"""
             self.display_gitignore_summary()
 
             self.logger.info("GitIgnore operations completed successfully")
+
+            # Log operation to JSONL
+            operation_data = self._collect_gitignore_operation_data("success")
+            self.operation_logger.log_operation(operation_data)
+
             return 0
 
         except KeyboardInterrupt:
             console.print("\n[yellow]Operation cancelled by user[/yellow]")
             self.logger.warning("Operation cancelled by user")
+
+            # Log cancelled operation to JSONL
+            if self.operation_logger:
+                operation_data = self._collect_gitignore_operation_data("cancelled")
+                self.operation_logger.log_operation(operation_data)
+
             return 130
         except Exception as e:
             console.print(f"\n[red]✗ Error: {e}[/red]")
             self.logger.error(f"Error: {e}", exc_info=True)
+
+            # Log failed operation to JSONL
+            if self.operation_logger:
+                operation_data = self._collect_gitignore_operation_data("error", str(e))
+                self.operation_logger.log_operation(operation_data)
+
             return 1
 
     def run(self) -> int:
@@ -952,6 +1233,9 @@ Template: [dim]{template_path}[/dim]"""
             if not self.validate_target_directory():
                 return 1
 
+            # Initialize operation logger after target directory is validated
+            self.operation_logger = OperationLogger(self.config.target_dir, self.logger)
+
             # Analysis
             console.print("\n[bold]Analyzing artifacts...[/bold]")
             self.analyze_operations()
@@ -968,15 +1252,32 @@ Template: [dim]{template_path}[/dim]"""
             self.display_summary()
 
             self.logger.info("CC Setup completed successfully")
+
+            # Log operation to JSONL
+            operation_data = self._collect_artifact_operation_data("success")
+            self.operation_logger.log_operation(operation_data)
+
             return 0
 
         except KeyboardInterrupt:
             console.print("\n[yellow]Operation cancelled by user[/yellow]")
             self.logger.warning("Operation cancelled by user")
+
+            # Log cancelled operation to JSONL
+            if self.operation_logger:
+                operation_data = self._collect_artifact_operation_data("cancelled")
+                self.operation_logger.log_operation(operation_data)
+
             return 130
         except Exception as e:
             console.print(f"\n[red]✗ Error: {e}[/red]")
             self.logger.error(f"Error: {e}", exc_info=True)
+
+            # Log failed operation to JSONL
+            if self.operation_logger:
+                operation_data = self._collect_artifact_operation_data("error", str(e))
+                self.operation_logger.log_operation(operation_data)
+
             return 1
 
 

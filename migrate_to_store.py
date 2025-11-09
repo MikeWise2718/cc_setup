@@ -137,11 +137,34 @@ def migrate_mode(source_repo: str, target_mode: str, logger: MigrationLogger):
                 except Exception as e:
                     logger.log_info(f"ERROR: Failed to copy {item}: {e}")
             elif item.is_dir():
-                # Skip directories like utils, adw_modules, etc.
+                # Skip directories for most categories, but handle adws specially
                 logger.log_skip(item, "Skipping directory")
 
         if files_in_category == 0:
             logger.log_info(f"  No files found in {source_subdir}")
+
+        # Special handling for adws category - copy subdirectories
+        if source_subdir == "adws":
+            logger.log_info(f"\nMigrating adws subdirectories...")
+            adws_subdirs = ["adw_modules", "adw_tests", "adw_triggers"]
+            for subdir_name in adws_subdirs:
+                subdir_source = source_path / subdir_name
+                subdir_target = target_path / subdir_name
+
+                if subdir_source.exists() and subdir_source.is_dir():
+                    try:
+                        # Remove target if it exists to ensure clean copy
+                        if subdir_target.exists():
+                            shutil.rmtree(subdir_target)
+                        shutil.copytree(subdir_source, subdir_target)
+                        logger.log_copy(subdir_source, subdir_target)
+                        # Count files in the directory
+                        file_count = len([f for f in subdir_target.rglob('*') if f.is_file()])
+                        logger.log_info(f"  Copied {file_count} files in {subdir_name}/")
+                    except Exception as e:
+                        logger.log_info(f"ERROR: Failed to copy directory {subdir_source}: {e}")
+                else:
+                    logger.log_skip(subdir_source, "Directory not found")
 
 
 def main():

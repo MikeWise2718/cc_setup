@@ -503,6 +503,8 @@ This helps you understand which files are current vs. which may need updating.
 
 ## Logging
 
+### Tool Logs
+
 Every run creates a timestamped log file in the `logs/` directory:
 
 ```
@@ -515,6 +517,114 @@ The log contains:
 - Each file operation (copy/skip/overwrite)
 - Warnings and errors
 - Summary statistics
+
+### Operation Logs (JSONL)
+
+Each time cc_setup runs (whether in dry-run or execute mode), it creates or appends to a machine-readable JSONL (JSON Lines) log file in the target repository:
+
+```
+<target-repo>/.claude/cc_setup.log.jsonl
+```
+
+This log file accumulates a history of all cc_setup operations applied to the repository, making it easy to:
+- Query what has been done to a repository
+- Track changes over time
+- Programmatically analyze setup history
+- Verify the current state of a repository
+
+#### JSONL Format
+
+Each line in the log is a complete JSON object representing one operation. The log includes:
+
+**Common fields (all operations):**
+- `timestamp`: ISO 8601 formatted UTC timestamp
+- `version`: cc_setup version that performed the operation
+- `operation_type`: Either "artifact" or "gitignore"
+- `mode`: Operation mode ("basic", "iso", or gitignore language)
+- `target_dir`: Target directory path
+- `execute`: Boolean indicating if changes were actually applied
+- `result`: Operation result ("success", "error", or "cancelled")
+- `error_message`: Optional error message if result is "error"
+
+**For artifact operations:**
+- `overwrite`: Boolean indicating if overwrite was enabled
+- `statistics`: Object with counts (files_copied, files_skipped, etc.)
+- `artifacts`: Array of artifact details with status and action
+
+**For gitignore operations:**
+- `gitignore_operation`: Type of operation ("compare", "merge", or "replace")
+- `comparison_mode`: For compare operations ("diff" or "set")
+- `statistics`: Object with lines_added and lines_removed (for merge/replace)
+
+#### Example JSONL Entry
+
+```json
+{
+  "timestamp": "2025-11-08T14:30:00+00:00",
+  "version": "0.4.1",
+  "operation_type": "artifact",
+  "mode": "basic",
+  "target_dir": "/path/to/project",
+  "execute": true,
+  "overwrite": false,
+  "result": "success",
+  "statistics": {
+    "files_copied": 51,
+    "files_skipped": 0
+  },
+  "artifacts": [
+    {
+      "filename": "settings.json",
+      "category": "Settings",
+      "status": "✓ New",
+      "action": "Copying"
+    }
+  ]
+}
+```
+
+#### Querying the Log
+
+**Using Python:**
+```python
+import json
+
+# Read and parse JSONL log
+with open('.claude/cc_setup.log.jsonl', 'r') as f:
+    operations = [json.loads(line) for line in f]
+
+# Get the most recent operation
+latest = operations[-1]
+print(f"Last run: {latest['timestamp']}, Mode: {latest['mode']}, Result: {latest['result']}")
+
+# Count successful artifact installations
+artifact_ops = [op for op in operations if op['operation_type'] == 'artifact' and op['result'] == 'success']
+print(f"Total successful artifact operations: {len(artifact_ops)}")
+```
+
+**Using jq (command-line JSON processor):**
+```bash
+# View the last operation
+tail -1 .claude/cc_setup.log.jsonl | jq .
+
+# Get all successful operations
+cat .claude/cc_setup.log.jsonl | jq 'select(.result == "success")'
+
+# Count operations by mode
+cat .claude/cc_setup.log.jsonl | jq -r '.mode' | sort | uniq -c
+
+# Get timestamps of all operations
+cat .claude/cc_setup.log.jsonl | jq -r '.timestamp'
+```
+
+**Using shell commands:**
+```bash
+# Count total operations
+wc -l < .claude/cc_setup.log.jsonl
+
+# Check if any operations failed
+grep '"result": "error"' .claude/cc_setup.log.jsonl
+```
 
 ## File Handling
 

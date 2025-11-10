@@ -18,7 +18,11 @@
       "Bash(cc_setup:*)",
       "Bash(for file in store/basic/commands/{chore,feature,patch}.md)",
       "Bash(do grep -n \"app/server\\|app/client\" \"$file\")",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(while IFS= read -r line)",
+      "Bash(do echo \"$line\")",
+      "Bash(test:*)",
+      "Bash(.gitignore)"
     ],
     "deny": [],
     "ask": []

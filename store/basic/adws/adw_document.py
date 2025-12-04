@@ -33,7 +33,7 @@ from adw_modules.workflow_ops import (
     format_issue_message,
     find_spec_file,
 )
-from adw_modules.utils import setup_logger
+from adw_modules.utils import setup_logger, check_claude_auth_available
 from adw_modules.data_types import GitHubIssue, AgentTemplateRequest, DocumentationResult, IssueClassSlashCommand
 from adw_modules.agent import execute_template
 
@@ -42,24 +42,30 @@ AGENT_DOCUMENTER = "documenter"
 
 
 def check_env_vars(logger: Optional[logging.Logger] = None) -> None:
-    """Check that all required environment variables are set."""
-    required_vars = [
-        "ANTHROPIC_API_KEY",
-        "CLAUDE_CODE_PATH",
-    ]
-    
-    missing_vars = []
-    for var in required_vars:
-        if not os.getenv(var):
-            missing_vars.append(var)
-    
-    if missing_vars:
-        msg = f"Missing required environment variables: {', '.join(missing_vars)}"
+    """Check that Claude Code authentication is available.
+
+    Claude Code can authenticate via:
+    1. ANTHROPIC_API_KEY environment variable (API mode)
+    2. Claude Max subscription (OAuth mode) - no API key needed
+    """
+    auth_available, auth_mode = check_claude_auth_available()
+
+    if not auth_available:
+        error_msg = "Error: No Claude Code authentication available."
+        help_msg = "Either set ANTHROPIC_API_KEY or login via 'claude login' for Claude Max."
         if logger:
-            logger.error(msg)
+            logger.error(error_msg)
+            logger.error(help_msg)
         else:
-            print(f"Error: {msg}")
+            print(error_msg, file=sys.stderr)
+            print(help_msg, file=sys.stderr)
         sys.exit(1)
+
+    if logger:
+        if auth_mode == "api_key":
+            logger.info("Using ANTHROPIC_API_KEY authentication")
+        else:
+            logger.info("Using Claude Max (OAuth) authentication")
 
 
 

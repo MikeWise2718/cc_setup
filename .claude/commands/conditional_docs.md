@@ -24,3 +24,10 @@ This prompt helps you determine what documentation you should read based on the 
 - adws/README.md
   - Conditions:
     - When you're operating in the `adws/` directory
+
+- store/basic/adws/TESTING.md
+  - Conditions:
+    - When running tests for ADW modules
+    - When checking or improving code coverage
+    - When adding new tests to the ADW system
+    - When troubleshooting test failures

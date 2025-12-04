@@ -64,13 +64,17 @@ class HealthCheckResult(BaseModel):
 
 
 def check_env_vars() -> CheckResult:
-    """Check required environment variables."""
-    required_vars = {
-        "ANTHROPIC_API_KEY": "Anthropic API Key for Claude Code",
-        "CLAUDE_CODE_PATH": "Path to Claude Code CLI (defaults to 'claude')",
-    }
+    """Check environment variables for Claude Code authentication.
+
+    Claude Code can authenticate via:
+    1. ANTHROPIC_API_KEY environment variable (API mode)
+    2. Claude Max subscription (OAuth mode) - no API key needed
+    """
+    # Import the auth check function
+    from adw_modules.utils import check_claude_auth_available
 
     optional_vars = {
+        "ANTHROPIC_API_KEY": "(Optional) Anthropic API Key - not needed if using Claude Max subscription",
         "GITHUB_PAT": "(Optional) GitHub Personal Access Token - only needed if you want ADW to use a different GitHub account than 'gh auth login'",
         "E2B_API_KEY": "(Optional) E2B API Key for sandbox environments",
         "CLOUDFLARED_TUNNEL_TOKEN": "(Optional) Cloudflare tunnel token for webhook exposure",
@@ -81,31 +85,23 @@ def check_env_vars() -> CheckResult:
         "CLOUDFLARE_R2_PUBLIC_DOMAIN": "(Optional) Custom domain for public R2 access",
     }
 
-    missing_required = []
     missing_optional = []
-
-    # Check required vars
-    for var, desc in required_vars.items():
-        if not os.getenv(var):
-            if var == "CLAUDE_CODE_PATH":
-                # This has a default, so not critical
-                continue
-            missing_required.append(f"{var} ({desc})")
 
     # Check optional vars
     for var, desc in optional_vars.items():
         if not os.getenv(var):
             missing_optional.append(f"{var} ({desc})")
 
-    success = len(missing_required) == 0
+    # Check Claude authentication (API key OR OAuth)
+    auth_available, auth_mode = check_claude_auth_available()
 
     return CheckResult(
-        success=success,
-        error="Missing required environment variables" if not success else None,
+        success=True,  # Auth check is done separately in check_claude_code
         details={
-            "missing_required": missing_required,
             "missing_optional": missing_optional,
             "claude_code_path": os.getenv("CLAUDE_CODE_PATH", "claude"),
+            "auth_mode": auth_mode,
+            "api_key_set": bool(os.getenv("ANTHROPIC_API_KEY")),
         },
     )
 
@@ -296,19 +292,32 @@ def run_health_check() -> HealthCheckResult:
         if gh_check.error:
             result.errors.append(gh_check.error)
 
-    # Check Claude Code - only if we have the API key
-    if os.getenv("ANTHROPIC_API_KEY"):
+    # Check Claude Code - works with API key OR Claude Max (OAuth)
+    from adw_modules.utils import check_claude_auth_available
+    auth_available, auth_mode = check_claude_auth_available()
+
+    if auth_available:
         claude_check = check_claude_code()
         result.checks["claude_code"] = claude_check
         if not claude_check.success:
             result.success = False
             if claude_check.error:
                 result.errors.append(claude_check.error)
+        else:
+            # Add auth mode info to details
+            claude_check.details["auth_mode"] = auth_mode
     else:
         result.checks["claude_code"] = CheckResult(
             success=False,
-            details={"skipped": True, "reason": "ANTHROPIC_API_KEY not set"},
+            error="No Claude Code authentication available",
+            details={
+                "skipped": False,
+                "reason": "Neither ANTHROPIC_API_KEY nor Claude Max (OAuth) authentication available",
+                "help": "Set ANTHROPIC_API_KEY or login via 'claude login' for Claude Max",
+            },
         )
+        result.success = False
+        result.errors.append("No Claude Code authentication available")
 
     return result
 
@@ -370,16 +379,15 @@ def main():
     # Print next steps
     if not result.success:
         print("\n📝 Next Steps:")
-        if any("ANTHROPIC_API_KEY" in e for e in result.errors):
-            print("   1. Set ANTHROPIC_API_KEY in your .env file")
-        if any("GITHUB_PAT" in e for e in result.errors):
-            print("   2. Set GITHUB_PAT in your .env file")
+        if any("Claude Code authentication" in e for e in result.errors):
+            print("   Option A: Set ANTHROPIC_API_KEY in your .env file")
+            print("   Option B: Login via 'claude login' for Claude Max subscription")
         if any("GitHub CLI" in e for e in result.errors):
-            print("   3. Install GitHub CLI: brew install gh")
-            print("   4. Authenticate: gh auth login")
+            print("   - Install GitHub CLI: brew install gh (or winget install GitHub.cli)")
+            print("   - Authenticate: gh auth login")
         if any("disler" in w for w in result.warnings):
             print(
-                "   5. Fork/clone the repository and update git remote to your own repo"
+                "   - Fork/clone the repository and update git remote to your own repo"
             )
 
     # If issue number provided, post comment

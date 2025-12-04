@@ -75,11 +75,14 @@ class MigrationLogger:
         print(f"\n✓ Migration log written to: {self.log_file}")
 
 
-def migrate_mode(source_repo: str, target_mode: str, logger: MigrationLogger):
+def migrate_mode(source_repo: str, target_mode: str, logger: MigrationLogger, source_base: Path = None):
     """Migrate artifacts from source repo to target mode."""
     logger.log_section(f"MIGRATING {target_mode.upper()} MODE FROM {source_repo}")
 
-    source_base = SOURCE_BASE / source_repo
+    if source_base is None:
+        source_base = SOURCE_BASE / source_repo
+    else:
+        source_base = source_base / source_repo
     target_base = STORE_BASE / target_mode
 
     # Check if source exists
@@ -191,6 +194,86 @@ def main():
 
     # Migrate iso mode
     migrate_mode("tac-7", "iso", logger)
+
+    # Migrate iso_v* modes
+    # Pattern: iso_v* modes inherit settings, commands, hooks, scripts from iso
+    # but get their adws from an external source directory.
+    # To add a new iso_v* mode:
+    #   1. Add entry to iso_versions dict below: "iso_vN": Path(r"path/to/adws")
+    #   2. Add "iso_vN" to cc_setup.py argument parser choices
+    #   3. Run this migration script
+    iso_versions = {
+        "iso_v1": Path(r"d:\python\scipap\adws"),
+        # "iso_v2": Path(r"d:\python\other_project\adws"),  # Example for future versions
+    }
+
+    iso_base = STORE_BASE / "iso"
+    for version_name, adws_source in iso_versions.items():
+        logger.log_section(f"MIGRATING {version_name.upper()} MODE")
+        version_target = STORE_BASE / version_name
+
+        if not adws_source.exists():
+            logger.log_info(f"WARNING: Source directory not found: {adws_source}")
+            logger.log_info(f"Skipping {version_name} mode migration")
+            continue
+
+        version_target.mkdir(parents=True, exist_ok=True)
+        logger.log_info(f"Created target directory: {version_target}")
+
+        # Copy base artifacts from iso mode (settings, commands, hooks, scripts)
+        logger.log_info("\nCopying base artifacts from iso mode...")
+        base_artifacts = ["settings.json", "commands", "hooks", "scripts"]
+        for artifact in base_artifacts:
+            src = iso_base / artifact
+            dst = version_target / artifact
+            if src.exists():
+                try:
+                    if src.is_file():
+                        shutil.copy2(src, dst)
+                    else:
+                        if dst.exists():
+                            shutil.rmtree(dst)
+                        shutil.copytree(src, dst)
+                    logger.log_copy(src, dst)
+                except Exception as e:
+                    logger.log_info(f"ERROR: Failed to copy {src}: {e}")
+            else:
+                logger.log_skip(src, "Not found in iso mode")
+
+        # Create adws directory in target
+        adws_target = version_target / "adws"
+        adws_target.mkdir(parents=True, exist_ok=True)
+
+        # Copy all .py files from source adws directory
+        logger.log_info(f"\nMigrating adws Python files from {adws_source}...")
+        for item in adws_source.iterdir():
+            if item.is_file() and item.suffix == ".py":
+                dst = adws_target / item.name
+                try:
+                    shutil.copy2(item, dst)
+                    logger.log_copy(item, dst)
+                except Exception as e:
+                    logger.log_info(f"ERROR: Failed to copy {item}: {e}")
+
+        # Copy subdirectories (adw_modules, adw_tests, adw_triggers)
+        logger.log_info("\nMigrating adws subdirectories...")
+        adws_subdirs = ["adw_modules", "adw_tests", "adw_triggers"]
+        for subdir_name in adws_subdirs:
+            subdir_source = adws_source / subdir_name
+            subdir_target = adws_target / subdir_name
+
+            if subdir_source.exists() and subdir_source.is_dir():
+                try:
+                    if subdir_target.exists():
+                        shutil.rmtree(subdir_target)
+                    shutil.copytree(subdir_source, subdir_target)
+                    logger.log_copy(subdir_source, subdir_target)
+                    file_count = len([f for f in subdir_target.rglob('*') if f.is_file()])
+                    logger.log_info(f"  Copied {file_count} files in {subdir_name}/")
+                except Exception as e:
+                    logger.log_info(f"ERROR: Failed to copy directory {subdir_source}: {e}")
+            else:
+                logger.log_skip(subdir_source, "Directory not found")
 
     # Write final log
     logger.log_section("MIGRATION COMPLETE")

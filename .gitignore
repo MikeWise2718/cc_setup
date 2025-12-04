@@ -44,6 +44,10 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
+coverage_html/
+
+# Temporary test targets (use temp/ for manual cc_setup testing)
+temp/
 
 # OS
 Thumbs.db

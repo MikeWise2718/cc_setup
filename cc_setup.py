@@ -767,7 +767,9 @@ class CCSetup:
 
     def display_header(self) -> None:
         """Display header panel."""
-        mode_str = "Basic Mode" if self.config.mode == "basic" else "Isolated Worktree Mode"
+        mode_str = "Basic Mode" if self.config.mode == "basic" else \
+                   "Isolated Worktree Mode" if self.config.mode == "iso" else \
+                   "Isolated Worktree Extended Mode (v1)"
         exec_str = "[green]EXECUTE MODE[/green]" if self.config.execute else "[yellow]DRY RUN[/yellow]"
         overwrite_str = " | [red]OVERWRITE ENABLED[/red]" if self.config.overwrite else ""
 
@@ -1387,8 +1389,10 @@ def show_help_artifacts():
     console.print(Panel("[bold cyan]Claude Code Setup - Available Artifacts[/bold cyan]",
                        box=box.DOUBLE))
 
-    for mode in ["basic", "iso"]:
-        mode_title = "BASIC MODE" if mode == "basic" else "ISOLATED WORKTREE MODE"
+    for mode in ["basic", "iso", "iso_v1"]:
+        mode_title = "BASIC MODE" if mode == "basic" else \
+                     "ISOLATED WORKTREE MODE" if mode == "iso" else \
+                     "ISOLATED WORKTREE EXTENDED MODE (V1)"
         console.print(f"\n[bold green]{mode_title}[/bold green]")
         console.print("=" * 60)
 
@@ -1447,6 +1451,14 @@ def show_examples():
         ("Execute iso mode with overwrite", [
             "uv run cc_setup --target /path/to/project --mode iso --execute --overwrite",
             "uv run cc_setup -t /path/to/project -m iso -ex -ov"
+        ]),
+        ("Execute iso_v1 mode", [
+            "uv run cc_setup --target /path/to/project --mode iso_v1 --execute",
+            "uv run cc_setup -t /path/to/project -m iso_v1 -ex"
+        ]),
+        ("Execute iso_v1 mode with overwrite", [
+            "uv run cc_setup --target /path/to/project --mode iso_v1 --execute --overwrite",
+            "uv run cc_setup -t /path/to/project -m iso_v1 -ex -ov"
         ]),
         ("Show available artifacts", [
             "uv run cc_setup --help-artifacts",
@@ -1569,8 +1581,8 @@ def main():
 
     parser.add_argument(
         "--mode", "-m",
-        choices=["basic", "iso"],
-        help="Setup mode: 'basic' or 'iso' (isolated worktree)"
+        choices=["basic", "iso", "iso_v1"],
+        help="Setup mode: 'basic', 'iso' (isolated worktree), or 'iso_v1' (isolated worktree extended)"
     )
 
     parser.add_argument(

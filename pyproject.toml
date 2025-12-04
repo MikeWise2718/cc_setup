@@ -1,6 +1,6 @@
 [project]
 name = "cc_setup"
-version = "0.6.3"
+version = "0.7.1"
 description = "Claude Code setup tool for copying artifacts into target projects"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -31,4 +31,38 @@ exclude = [
 "store" = "store"
 
 [tool.uv]
-dev-dependencies = []
+dev-dependencies = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "coverage[toml]>=7.4.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["store/basic/adws/adw_tests", "store/iso/adws/adw_tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["store/basic/adws/adw_modules", "store/iso/adws/adw_modules"]
+branch = true
+omit = [
+    "*/__pycache__/*",
+    "*/adw_tests/*",
+    "*/adw_triggers/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
+show_missing = true
+precision = 2
+
+[tool.coverage.html]
+directory = "coverage_html"

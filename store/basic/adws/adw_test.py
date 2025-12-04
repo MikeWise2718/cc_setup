@@ -44,7 +44,7 @@ from adw_modules.github import (
     make_issue_comment,
     get_repo_url,
 )
-from adw_modules.utils import make_adw_id, setup_logger, parse_json
+from adw_modules.utils import make_adw_id, setup_logger, parse_json, check_claude_auth_available
 from adw_modules.state import ADWState
 from adw_modules.git_ops import commit_changes, finalize_git_operations
 from adw_modules.workflow_ops import (
@@ -67,24 +67,30 @@ MAX_E2E_TEST_RETRY_ATTEMPTS = 2  # E2E ui tests
 
 
 def check_env_vars(logger: Optional[logging.Logger] = None) -> None:
-    """Check that all required environment variables are set."""
-    required_vars = [
-        "ANTHROPIC_API_KEY",
-        "CLAUDE_CODE_PATH",
-    ]
-    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    """Check that Claude Code authentication is available.
 
-    if missing_vars:
-        error_msg = "Error: Missing required environment variables:"
+    Claude Code can authenticate via:
+    1. ANTHROPIC_API_KEY environment variable (API mode)
+    2. Claude Max subscription (OAuth mode) - no API key needed
+    """
+    auth_available, auth_mode = check_claude_auth_available()
+
+    if not auth_available:
+        error_msg = "Error: No Claude Code authentication available."
+        help_msg = "Either set ANTHROPIC_API_KEY or login via 'claude login' for Claude Max."
         if logger:
             logger.error(error_msg)
-            for var in missing_vars:
-                logger.error(f"  - {var}")
+            logger.error(help_msg)
         else:
             print(error_msg, file=sys.stderr)
-            for var in missing_vars:
-                print(f"  - {var}", file=sys.stderr)
+            print(help_msg, file=sys.stderr)
         sys.exit(1)
+
+    if logger:
+        if auth_mode == "api_key":
+            logger.info("Using ANTHROPIC_API_KEY authentication")
+        else:
+            logger.info("Using Claude Max (OAuth) authentication")
 
 
 def parse_args(

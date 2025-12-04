@@ -4,7 +4,7 @@ A Python utility for copying Claude Code artifacts from a local store into targe
 
 ## Features
 
-- **Two Setup Modes**: Basic and Isolated (worktree-capable)
+- **Three Setup Modes**: Basic, Isolated (worktree-capable), and Isolated Extended (iso_v1)
 - **Local Artifact Store**: Self-contained with all artifacts included
 - **Dynamic Discovery**: Automatically detects available artifacts
 - **Dry-Run Analysis**: Preview changes before executing
@@ -122,6 +122,15 @@ uv run cc_setup --target /path/to/project --mode iso --execute
 uv run cc_setup -t /path/to/project -m iso -ex
 ```
 
+### Execute Isolated Worktree Extended Setup
+Copy enhanced artifacts from the scipap project:
+
+```bash
+uv run cc_setup --target /path/to/project --mode iso_v1 --execute
+# Short form:
+uv run cc_setup -t /path/to/project -m iso_v1 -ex
+```
+
 ### Overwrite Existing Files
 Force overwrite of existing artifacts:
 
@@ -154,7 +163,7 @@ uv run cc_setup -hx
 | Option | Short | Description |
 |--------|-------|-------------|
 | `--target` | `-t` | Target directory path (required) |
-| `--mode` | `-m` | Setup mode: `basic` or `iso` (required for artifact mode) |
+| `--mode` | `-m` | Setup mode: `basic`, `iso`, or `iso_v1` (required for artifact mode) |
 | `--execute` | `-ex` | Actually perform operations (default: dry-run) |
 | `--overwrite` | `-ov` | Overwrite existing files (default: skip) |
 | `--gitignore` | `-gi` | Manage .gitignore for specified language (e.g., `python`, `csharp`) |
@@ -234,6 +243,44 @@ target-project/
 ├── scripts/                # 10 utility scripts
 └── trees/                  # Worktree directory (created by commands)
 ```
+
+### Isolated Worktree Extended Mode (iso_v1) (81 artifacts)
+
+Installs the latest enhanced isolated worktree artifacts from the scipap project:
+
+- **ADWs**: 28 files including 14 isolated Agent Developer Workflow scripts, plus additional test files for GitHub operations, pipe deadlock handling, and workflow testing
+- **ADW Modules**: 33 modules including `complexity.py` (complexity estimation) and `console.py` (enhanced console output)
+- **ADW Tests**: 16 test files for validating ADW functionality
+- **ADW Triggers**: 7 trigger scripts for automation
+
+**Directory Structure:**
+```
+target-project/
+└── adws/
+    ├── adw_*_iso.py        # 14 isolated workflow scripts
+    ├── test_*.py           # 11 test scripts
+    ├── adw_modules/        # 33 shared modules
+    ├── adw_tests/          # 16 test files
+    └── adw_triggers/       # 7 trigger scripts
+```
+
+**Key Features:**
+- Enhanced ADW modules with complexity estimation (`complexity.py`)
+- Improved console output formatting (`console.py`)
+- Comprehensive test suite for GitHub integration and workflow validation
+- Advanced pipe deadlock handling for subprocess operations
+- Production-ready trigger scripts for workflow automation
+
+### iso_v* Versioning Pattern
+
+The `iso_v*` modes (iso_v1, iso_v2, etc.) follow a versioning pattern:
+- **Base artifacts** (settings.json, commands/, hooks/, scripts/) are inherited from the `iso` mode
+- **ADWs** are sourced from an external project directory, allowing different ADW implementations
+
+To add a new iso version:
+1. Add entry to `iso_versions` dict in `migrate_to_store.py`
+2. Add the new mode to `cc_setup.py` argument parser choices
+3. Run the migration script: `python migrate_to_store.py`
 
 ## GitIgnore Management
 
@@ -698,10 +745,22 @@ The `store/CUSTOMIZATION_GUIDE.md` provides complete examples for:
 
 The local store makes it easy to customize which artifacts are included:
 
+**Directory Tracking Policy:**
+- Everything in `store/` MUST be tracked - these are the artifacts cc_setup deploys
+- Everything in `specs/` MUST be tracked - these provide historical context for changes
+- If a file is not necessary, it should not be in these directories
+- Temporary files, test outputs, and experiments belong in `temp/` (gitignored)
+
+**Testing cc_setup:**
+- When testing cc_setup manually, use a `temp/` subdirectory for target directories
+- Example: `uv run cc_setup -t temp/test_basic -m basic -ex`
+- The `temp/` directory is gitignored and keeps experiments separate from source code
+
 **Adding Artifacts:**
 1. Navigate to `store/basic/` or `store/iso/`
 2. Add your file to the appropriate category folder (`hooks/`, `commands/`, `scripts/`, `adws/`)
 3. The tool will automatically discover and include it
+4. Stage and commit the new file to git
 
 **Removing Artifacts:**
 1. Delete the file from the store directory

@@ -158,20 +158,60 @@ def parse_json(text: str, target_type: Type[T] = None) -> Union[T, Any]:
         raise ValueError(f"Failed to parse JSON: {e}. Text was: {json_str[:200]}...")
 
 
+def check_claude_auth_available() -> tuple[bool, str]:
+    """Check if Claude Code authentication is available.
+
+    Claude Code can authenticate via:
+    1. ANTHROPIC_API_KEY environment variable (API mode)
+    2. Claude Max subscription (OAuth mode) - user logged in via `claude login`
+
+    Returns:
+        Tuple of (is_available, auth_mode) where auth_mode is 'api_key', 'oauth', or 'none'
+    """
+    import subprocess
+
+    # Check for API key
+    api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    if api_key and len(api_key) > 10:
+        return True, "api_key"
+
+    # Check for OAuth/Claude Max by testing if CLI works without API key
+    claude_path = os.getenv("CLAUDE_CODE_PATH", "claude")
+    try:
+        # Just check if claude is installed - OAuth auth is handled by the CLI
+        result = subprocess.run(
+            [claude_path, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        if result.returncode == 0:
+            # CLI is installed, assume OAuth is available if no API key
+            return True, "oauth"
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    return False, "none"
+
+
 def get_safe_subprocess_env() -> Dict[str, str]:
     """Get filtered environment variables safe for subprocess execution.
-    
+
     Returns only the environment variables needed for ADW workflows based on
     .env.sample configuration. This prevents accidental exposure of sensitive
     credentials to subprocesses.
-    
+
+    Note: ANTHROPIC_API_KEY is optional - Claude Code can also authenticate via
+    Claude Max subscription (OAuth). If not set, it will be omitted from the
+    environment and Claude Code will use OAuth authentication.
+
     Returns:
         Dictionary containing only required environment variables
     """
     safe_env_vars = {
-        # Anthropic Configuration (required)
+        # Anthropic Configuration (optional - can use OAuth instead)
         "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY"),
-        
+
         # GitHub Configuration (optional)
         # GITHUB_PAT is optional - if not set, will use default gh auth
         "GITHUB_PAT": os.getenv("GITHUB_PAT"),

@@ -53,6 +53,7 @@ from adw_modules.workflow_ops import (
     post_workflow_completion_summary,
 )
 from adw_modules.worktree_ops import validate_worktree
+from adw_modules.execution_log import log_execution_start, log_execution_end
 
 # Agent name constants
 AGENT_TESTER = "test_runner"
@@ -224,7 +225,7 @@ def post_comprehensive_test_summary(
 
     # Overall status
     total_failures = (
-        (failed_count if results else 0) + 
+        (failed_count if results else 0) +
         (e2e_failed_count if e2e_results else 0)
     )
     if total_failures > 0:
@@ -245,7 +246,7 @@ def post_comprehensive_test_summary(
 
 def run_e2e_tests(adw_id: str, logger: logging.Logger, working_dir: Optional[str] = None) -> AgentPromptResponse:
     """Run the E2E test suite using the /test_e2e command.
-    
+
     Note: The test_e2e command will automatically detect and use ports from .ports.env
     in the working directory if it exists.
     """
@@ -650,13 +651,13 @@ def main():
     """Main entry point."""
     # Load environment variables
     load_dotenv()
-    
+
     # Check for --skip-e2e flag in args
     skip_e2e = "--skip-e2e" in sys.argv
     # Remove flag from args if present
     if skip_e2e:
         sys.argv.remove("--skip-e2e")
-    
+
     # Parse command line args
     # INTENTIONAL: adw-id is REQUIRED - we need it to find the worktree
     if len(sys.argv) < 3:
@@ -664,10 +665,10 @@ def main():
         print("\nError: adw-id is required to locate the worktree")
         print("Run adw_plan_iso.py or adw_patch_iso.py first to create the worktree")
         sys.exit(1)
-    
+
     issue_number = sys.argv[1]
     adw_id = sys.argv[2]
-    
+
     # Try to load existing state
     temp_logger = setup_logger(adw_id, "adw_test_iso")
     state = ADWState.load(adw_id, temp_logger)
@@ -686,222 +687,254 @@ def main():
         print(f"\nError: No state found for ADW ID: {adw_id}")
         print("Run adw_plan_iso.py or adw_patch_iso.py first to create the worktree and state")
         sys.exit(1)
-    
+
     # Track that this ADW workflow has run
     state.append_adw_id("adw_test_iso")
-    
+
     # Set up logger with ADW ID from command line
     logger = setup_logger(adw_id, "adw_test_iso")
     logger.info(f"ADW Test Iso starting - ID: {adw_id}, Issue: {issue_number}, Skip E2E: {skip_e2e}")
-    
-    # Validate environment
-    check_env_vars(logger)
-    
-    # Validate worktree exists
-    valid, error = validate_worktree(adw_id, state)
-    if not valid:
-        logger.error(f"Worktree validation failed: {error}")
-        logger.error("Run adw_plan_iso.py or adw_patch_iso.py first")
-        make_issue_comment(
-            issue_number,
-            format_issue_message(adw_id, "ops", f"❌ Worktree validation failed: {error}\n"
-                               "Run adw_plan_iso.py or adw_patch_iso.py first")
-        )
-        sys.exit(1)
-    
-    # Get worktree path for explicit context
+
+    # Start execution logging
     worktree_path = state.get("worktree_path")
-    logger.info(f"Using worktree at: {worktree_path}")
-    
-    # Get port information for display
-    backend_port = state.get("backend_port", "9100")
-    frontend_port = state.get("frontend_port", "9200")
-    
-    make_issue_comment(
-        issue_number, 
-        format_issue_message(adw_id, "ops", f"✅ Starting isolated testing phase\n"
-                           f"🏠 Worktree: {worktree_path}\n"
-                           f"🔌 Ports - Backend: {backend_port}, Frontend: {frontend_port}\n"
-                           f"🧪 E2E Tests: {'Skipped' if skip_e2e else 'Enabled'}")
+    start_entry = log_execution_start(
+        script_name="adw_test_iso.py",
+        adw_id=adw_id,
+        issue_number=issue_number,
+        worktree_path=worktree_path,
     )
-    
-    # Track results for resolution attempts
-    test_results = []
-    e2e_results = []
-    
-    # Run unit tests (executing in worktree)
-    logger.info("Running unit tests in worktree with automatic resolution")
-    make_issue_comment(
-        issue_number,
-        format_issue_message(adw_id, AGENT_TESTER, "🧪 Running unit tests in isolated environment...")
-    )
-    
-    # Run tests with resolution and retry logic
-    results, passed_count, failed_count, test_response = run_tests_with_resolution(
-        adw_id, issue_number, logger, worktree_path
-    )
-    
-    # Track results
-    test_results = results
-    
-    if results:
-        comment = format_test_results_comment(results, passed_count, failed_count)
+
+    exit_code = 0
+    success = True
+    error_info = None
+    passed_count = 0
+    failed_count = 0
+
+    try:
+        # Validate environment
+        check_env_vars(logger)
+
+        # Validate worktree exists
+        valid, error = validate_worktree(adw_id, state)
+        if not valid:
+            logger.error(f"Worktree validation failed: {error}")
+            logger.error("Run adw_plan_iso.py or adw_patch_iso.py first")
+            make_issue_comment(
+                issue_number,
+                format_issue_message(adw_id, "ops", f"❌ Worktree validation failed: {error}\n"
+                                   "Run adw_plan_iso.py or adw_patch_iso.py first")
+            )
+            sys.exit(1)
+
+        # Get worktree path for explicit context
+        worktree_path = state.get("worktree_path")
+        logger.info(f"Using worktree at: {worktree_path}")
+
+        # Get port information for display
+        backend_port = state.get("backend_port", "9100")
+        frontend_port = state.get("frontend_port", "9200")
+
         make_issue_comment(
             issue_number,
-            format_issue_message(adw_id, AGENT_TESTER, comment)
+            format_issue_message(adw_id, "ops", f"✅ Starting isolated testing phase\n"
+                               f"🏠 Worktree: {worktree_path}\n"
+                               f"🔌 Ports - Backend: {backend_port}, Frontend: {frontend_port}\n"
+                               f"🧪 E2E Tests: {'Skipped' if skip_e2e else 'Enabled'}")
         )
-        logger.info(f"Test results: {passed_count} passed, {failed_count} failed")
-    else:
-        logger.warning("No test results found in output")
+
+        # Track results for resolution attempts
+        test_results = []
+        e2e_results = []
+
+        # Run unit tests (executing in worktree)
+        logger.info("Running unit tests in worktree with automatic resolution")
         make_issue_comment(
             issue_number,
-            format_issue_message(
-                adw_id, AGENT_TESTER, "⚠️ No test results found in output"
-            ),
+            format_issue_message(adw_id, AGENT_TESTER, "🧪 Running unit tests in isolated environment...")
         )
-    
-    # Run E2E tests if not skipped (executing in worktree)
-    e2e_passed = 0
-    e2e_failed = 0
-    if not skip_e2e:
-        logger.info("Running E2E tests in worktree with automatic resolution")
-        make_issue_comment(
-            issue_number,
-            format_issue_message(adw_id, AGENT_E2E_TESTER, "🌐 Running E2E tests in isolated environment...")
-        )
-        
-        # Run E2E tests with resolution and retry logic
-        e2e_results, e2e_passed, e2e_failed = run_e2e_tests_with_resolution(
+
+        # Run tests with resolution and retry logic
+        results, passed_count, failed_count, test_response = run_tests_with_resolution(
             adw_id, issue_number, logger, worktree_path
         )
-        
-        if e2e_results:
-            logger.info(f"E2E test results: {e2e_passed} passed, {e2e_failed} failed")
-    
-    # Post comprehensive summary
-    post_comprehensive_test_summary(
-        issue_number, adw_id, test_results, e2e_results, logger
-    )
-    
-    # Check if we should exit due to test failures
-    total_failures = failed_count + (e2e_failed if not skip_e2e and e2e_results else 0)
-    if total_failures > 0:
-        logger.warning(f"Tests completed with {total_failures} failures - continuing to commit results")
-        # Note: We don't exit here anymore, we commit the results regardless
-        # This is different from the old workflow which would exit(1) on failures
-    
-    # Get repo information
-    try:
-        github_repo_url = get_repo_url()
-        repo_path = extract_repo_path(github_repo_url)
-    except ValueError as e:
-        logger.error(f"Error getting repository URL: {e}")
-        sys.exit(1)
-    
-    # Fetch issue data for commit message generation
-    logger.info("Fetching issue data for commit message")
-    issue = fetch_issue(issue_number, repo_path)
-    
-    # Get issue classification from state or classify if needed
-    issue_command = state.get("issue_class")
-    if not issue_command:
-        logger.info("No issue classification in state, running classify_issue")
-        issue_command, error = classify_issue(issue, adw_id, logger)
-        if error:
-            logger.error(f"Error classifying issue: {error}")
-            # Default to feature if classification fails
-            issue_command = "/feature"
-            logger.warning("Defaulting to /feature after classification error")
+
+        # Track results
+        test_results = results
+
+        if results:
+            comment = format_test_results_comment(results, passed_count, failed_count)
+            make_issue_comment(
+                issue_number,
+                format_issue_message(adw_id, AGENT_TESTER, comment)
+            )
+            logger.info(f"Test results: {passed_count} passed, {failed_count} failed")
         else:
-            # Save the classification for future use
-            state.update(issue_class=issue_command)
-            state.save("adw_test_iso")
-    
-    # Create commit message
-    logger.info("Creating test commit")
-    commit_msg, error = create_commit(AGENT_TESTER, issue, issue_command, adw_id, logger, worktree_path)
-    
-    if error:
-        logger.error(f"Error creating commit message: {error}")
-        make_issue_comment(
-            issue_number,
-            format_issue_message(adw_id, AGENT_TESTER, f"❌ Error creating commit message: {error}")
+            logger.warning("No test results found in output")
+            make_issue_comment(
+                issue_number,
+                format_issue_message(
+                    adw_id, AGENT_TESTER, "⚠️ No test results found in output"
+                ),
+            )
+
+        # Run E2E tests if not skipped (executing in worktree)
+        e2e_passed = 0
+        e2e_failed = 0
+        if not skip_e2e:
+            logger.info("Running E2E tests in worktree with automatic resolution")
+            make_issue_comment(
+                issue_number,
+                format_issue_message(adw_id, AGENT_E2E_TESTER, "🌐 Running E2E tests in isolated environment...")
+            )
+
+            # Run E2E tests with resolution and retry logic
+            e2e_results, e2e_passed, e2e_failed = run_e2e_tests_with_resolution(
+                adw_id, issue_number, logger, worktree_path
+            )
+
+            if e2e_results:
+                logger.info(f"E2E test results: {e2e_passed} passed, {e2e_failed} failed")
+
+        # Post comprehensive summary
+        post_comprehensive_test_summary(
+            issue_number, adw_id, test_results, e2e_results, logger
         )
-        sys.exit(1)
-    
-    # Commit the test results (in worktree)
-    success, error = commit_changes(commit_msg, cwd=worktree_path)
-    
-    if not success:
-        logger.error(f"Error committing test results: {error}")
+
+        # Check if we should exit due to test failures
+        total_failures = failed_count + (e2e_failed if not skip_e2e and e2e_results else 0)
+        if total_failures > 0:
+            logger.warning(f"Tests completed with {total_failures} failures - continuing to commit results")
+
+        # Get repo information
+        try:
+            github_repo_url = get_repo_url()
+            repo_path = extract_repo_path(github_repo_url)
+        except ValueError as e:
+            logger.error(f"Error getting repository URL: {e}")
+            sys.exit(1)
+
+        # Fetch issue data for commit message generation
+        logger.info("Fetching issue data for commit message")
+        issue = fetch_issue(issue_number, repo_path)
+
+        # Get issue classification from state or classify if needed
+        issue_command = state.get("issue_class")
+        if not issue_command:
+            logger.info("No issue classification in state, running classify_issue")
+            issue_command, error = classify_issue(issue, adw_id, logger)
+            if error:
+                logger.error(f"Error classifying issue: {error}")
+                issue_command = "/feature"
+                logger.warning("Defaulting to /feature after classification error")
+            else:
+                state.update(issue_class=issue_command)
+                state.save("adw_test_iso")
+
+        # Create commit message
+        logger.info("Creating test commit")
+        commit_msg, error = create_commit(AGENT_TESTER, issue, issue_command, adw_id, logger, worktree_path)
+
+        if error:
+            logger.error(f"Error creating commit message: {error}")
+            make_issue_comment(
+                issue_number,
+                format_issue_message(adw_id, AGENT_TESTER, f"❌ Error creating commit message: {error}")
+            )
+            sys.exit(1)
+
+        # Commit the test results (in worktree)
+        commit_success, error = commit_changes(commit_msg, cwd=worktree_path)
+
+        if not commit_success:
+            logger.error(f"Error committing test results: {error}")
+            make_issue_comment(
+                issue_number,
+                format_issue_message(adw_id, AGENT_TESTER, f"❌ Error committing test results: {error}")
+            )
+            sys.exit(1)
+
+        logger.info(f"Committed test results: {commit_msg}")
         make_issue_comment(
-            issue_number,
-            format_issue_message(adw_id, AGENT_TESTER, f"❌ Error committing test results: {error}")
+            issue_number, format_issue_message(adw_id, AGENT_TESTER, "✅ Test results committed")
         )
-        sys.exit(1)
-    
-    logger.info(f"Committed test results: {commit_msg}")
-    make_issue_comment(
-        issue_number, format_issue_message(adw_id, AGENT_TESTER, "✅ Test results committed")
-    )
-    
-    # Finalize git operations (push and PR)
-    # Note: This will work from the worktree context
-    finalize_git_operations(state, logger, cwd=worktree_path)
-    
-    logger.info("Isolated testing phase completed successfully")
 
-    # Save final state
-    state.save("adw_test_iso")
+        # Finalize git operations (push and PR)
+        finalize_git_operations(state, logger, cwd=worktree_path)
 
-    # Calculate test statistics
-    total_tests = (len(test_results) if test_results else 0) + (len(e2e_results) if e2e_results and not skip_e2e else 0)
-    total_passed = passed_count + (e2e_passed if not skip_e2e else 0)
-    pass_rate = f"{(total_passed / total_tests * 100):.1f}%" if total_tests > 0 else "N/A"
+        logger.info("Isolated testing phase completed successfully")
 
-    # Determine test status and next steps
-    test_status = "success" if total_failures == 0 else "failure"
-    if total_failures == 0:
-        next_steps = [
-            f"All tests passed! 🎉",
-            f"Review the test results above",
-            f"To run review phase: `uv run adws/adw_review_iso.py {issue_number} {adw_id}`"
-        ]
-    else:
-        next_steps = [
-            f"Review test failures above and fix issues",
-            f"Check test logs in the worktree: `{worktree_path}`",
-            f"Re-run tests after fixes: `uv run adws/adw_test_iso.py {issue_number} {adw_id}`"
-        ]
+        # Save final state
+        state.save("adw_test_iso")
 
-    # Post completion summary to issue
-    post_workflow_completion_summary(
-        issue_number=issue_number,
-        adw_id=adw_id,
-        workflow_name="Testing",
-        status=test_status,
-        artifacts={
-            "test_results": {
-                "total_tests": total_tests,
-                "passed": total_passed,
-                "failed": total_failures,
-                "pass_rate": pass_rate
+        # Calculate test statistics
+        total_tests = (len(test_results) if test_results else 0) + (len(e2e_results) if e2e_results and not skip_e2e else 0)
+        total_passed = passed_count + (e2e_passed if not skip_e2e else 0)
+        pass_rate = f"{(total_passed / total_tests * 100):.1f}%" if total_tests > 0 else "N/A"
+
+        # Determine test status and next steps
+        test_status = "success" if total_failures == 0 else "failure"
+        if total_failures == 0:
+            next_steps = [
+                f"All tests passed! 🎉",
+                f"Review the test results above",
+                f"To run review phase: `uv run adws/adw_review_iso.py {issue_number} {adw_id}`"
+            ]
+        else:
+            next_steps = [
+                f"Review test failures above and fix issues",
+                f"Check test logs in the worktree: `{worktree_path}`",
+                f"Re-run tests after fixes: `uv run adws/adw_test_iso.py {issue_number} {adw_id}`"
+            ]
+
+        # Post completion summary to issue
+        post_workflow_completion_summary(
+            issue_number=issue_number,
+            adw_id=adw_id,
+            workflow_name="Testing",
+            status=test_status,
+            artifacts={
+                "test_results": {
+                    "total_tests": total_tests,
+                    "passed": total_passed,
+                    "failed": total_failures,
+                    "pass_rate": pass_rate
+                }
+            },
+            next_steps=next_steps,
+            worktree_path=worktree_path,
+            additional_info={
+                "unit_tests": f"{passed_count} passed, {failed_count} failed",
+                "e2e_tests": f"{e2e_passed} passed, {e2e_failed} failed" if not skip_e2e and e2e_results else "Skipped"
             }
-        },
-        next_steps=next_steps,
-        worktree_path=worktree_path,
-        additional_info={
-            "unit_tests": f"{passed_count} passed, {failed_count} failed",
-            "e2e_tests": f"{e2e_passed} passed, {e2e_failed} failed" if not skip_e2e and e2e_results else "Skipped"
-        }
-    )
+        )
 
-    # Exit with appropriate code based on test results
-    if total_failures > 0:
-        logger.error(f"Test workflow completed with {total_failures} failures")
-        sys.exit(1)
-    else:
-        logger.info("All tests passed successfully")
+        # Exit with appropriate code based on test results
+        if total_failures > 0:
+            logger.error(f"Test workflow completed with {total_failures} failures")
+            sys.exit(1)
+        else:
+            logger.info("All tests passed successfully")
+
+    except SystemExit as e:
+        exit_code = e.code if isinstance(e.code, int) else 1
+        success = exit_code == 0
+        if not success:
+            error_info = ("SystemExit", f"Script exited with code {exit_code}")
+        raise
+    except Exception as e:
+        exit_code = 1
+        success = False
+        error_info = (type(e).__name__, str(e))
+        raise
+    finally:
+        log_execution_end(
+            start_entry=start_entry,
+            exit_code=exit_code,
+            success=success,
+            error_type=error_info[0] if error_info else None,
+            error_message=error_info[1] if error_info else None,
+            model_set=state.get("model_set") if state else None,
+        )
 
 
 if __name__ == "__main__":

@@ -1,0 +1,211 @@
+{
+  "$schema": "https://lnav.org/schemas/format-v1.schema.json",
+  "adw_execution_log": {
+    "title": "ADW Execution Log",
+    "description": "AI Developer Workflow execution log format",
+    "json": true,
+    "file-pattern": "adw_execution\\.log\\.jsonl$",
+    "line-format": [
+      { "field": "timestamp", "min-width": 24, "timestamp-format": "%Y-%m-%dT%H:%M:%S.%f%z" },
+      " [",
+      { "field": "level", "default-value": "info", "min-width": 7 },
+      "] ",
+      { "field": "event_type", "min-width": 5 },
+      " | ",
+      { "field": "script_name", "min-width": 20 },
+      " | ",
+      { "field": "adw_id", "min-width": 8 },
+      " | ",
+      { "field": "message" }
+    ],
+    "timestamp-field": "timestamp",
+    "level-field": "level",
+    "level": {
+      "info": "info",
+      "warning": "warning",
+      "error": "error"
+    },
+    "value": {
+      "timestamp": {
+        "kind": "string",
+        "identifier": false
+      },
+      "event_type": {
+        "kind": "string",
+        "identifier": true,
+        "description": "Event type: 'start' or 'end'"
+      },
+      "level": {
+        "kind": "string",
+        "identifier": true,
+        "description": "Log level: info, warning, or error"
+      },
+      "message": {
+        "kind": "string",
+        "identifier": false,
+        "description": "Human-readable message"
+      },
+      "script_name": {
+        "kind": "string",
+        "identifier": true,
+        "description": "Name of the ADW script (e.g., adw_plan_iso.py)"
+      },
+      "adw_id": {
+        "kind": "string",
+        "identifier": true,
+        "description": "8-character ADW workflow ID"
+      },
+      "project_directory": {
+        "kind": "string",
+        "identifier": false,
+        "description": "Absolute path to project root"
+      },
+      "worktree_path": {
+        "kind": "string",
+        "identifier": false,
+        "description": "Path to worktree if applicable"
+      },
+      "issue_number": {
+        "kind": "string",
+        "identifier": true,
+        "description": "GitHub issue number"
+      },
+      "command_args": {
+        "kind": "json",
+        "identifier": false,
+        "description": "Command line arguments (sys.argv)"
+      },
+      "git_branch": {
+        "kind": "string",
+        "identifier": true,
+        "description": "Current git branch name"
+      },
+      "git_commit_hash": {
+        "kind": "string",
+        "identifier": true,
+        "description": "Git HEAD commit hash"
+      },
+      "python_version": {
+        "kind": "string",
+        "identifier": false,
+        "description": "Python version"
+      },
+      "platform": {
+        "kind": "string",
+        "identifier": true,
+        "description": "OS platform (win32, darwin, linux)"
+      },
+      "execution_time_seconds": {
+        "kind": "float",
+        "identifier": false,
+        "description": "Total execution time in seconds"
+      },
+      "exit_code": {
+        "kind": "integer",
+        "identifier": false,
+        "description": "Process exit code"
+      },
+      "success": {
+        "kind": "json",
+        "identifier": true,
+        "description": "Whether the script succeeded"
+      },
+      "files_summary": {
+        "kind": "json",
+        "identifier": false,
+        "description": "File counts (verbosity 0)"
+      },
+      "files_created": {
+        "kind": "json",
+        "identifier": false,
+        "description": "Files created during execution"
+      },
+      "files_modified": {
+        "kind": "json",
+        "identifier": false,
+        "description": "Files modified during execution"
+      },
+      "files_deleted": {
+        "kind": "json",
+        "identifier": false,
+        "description": "Files deleted during execution"
+      },
+      "total_tokens_input": {
+        "kind": "integer",
+        "identifier": false,
+        "description": "Total input tokens consumed"
+      },
+      "total_tokens_output": {
+        "kind": "integer",
+        "identifier": false,
+        "description": "Total output tokens consumed"
+      },
+      "total_cost_usd": {
+        "kind": "float",
+        "identifier": false,
+        "description": "Total API cost in USD"
+      },
+      "total_api_duration_ms": {
+        "kind": "integer",
+        "identifier": false,
+        "description": "Total API call duration in milliseconds"
+      },
+      "num_agent_calls": {
+        "kind": "integer",
+        "identifier": false,
+        "description": "Number of Claude agent invocations"
+      },
+      "claude_mode": {
+        "kind": "string",
+        "identifier": true,
+        "description": "Claude mode: apikey, max, or unknown"
+      },
+      "model_set_used": {
+        "kind": "string",
+        "identifier": true,
+        "description": "Model set: base or heavy"
+      },
+      "models_used": {
+        "kind": "json",
+        "identifier": false,
+        "description": "List of models used during execution"
+      },
+      "subprocesses": {
+        "kind": "json",
+        "identifier": false,
+        "description": "Subprocess invocations (orchestrators only)"
+      },
+      "subprocess_count": {
+        "kind": "integer",
+        "identifier": false,
+        "description": "Number of subprocesses invoked"
+      },
+      "subprocess_failures": {
+        "kind": "integer",
+        "identifier": false,
+        "description": "Number of subprocess failures"
+      },
+      "error_type": {
+        "kind": "string",
+        "identifier": true,
+        "description": "Exception type name if failed"
+      },
+      "error_message": {
+        "kind": "string",
+        "identifier": false,
+        "description": "Error message if failed"
+      }
+    },
+    "sample": [
+      {
+        "line": "{\"timestamp\":\"2025-01-15T10:30:00.000+0000\",\"event_type\":\"start\",\"level\":\"info\",\"message\":\"Starting adw_plan_iso.py workflow for issue #42\",\"script_name\":\"adw_plan_iso.py\",\"adw_id\":\"a1b2c3d4\",\"project_directory\":\"/home/user/project\",\"issue_number\":\"42\",\"command_args\":[\"adw_plan_iso.py\",\"42\"],\"python_version\":\"3.11.0\",\"platform\":\"linux\"}"
+      },
+      {
+        "line": "{\"timestamp\":\"2025-01-15T10:35:30.500+0000\",\"event_type\":\"end\",\"level\":\"info\",\"message\":\"Workflow completed successfully in 330.5s ($0.42)\",\"script_name\":\"adw_plan_iso.py\",\"adw_id\":\"a1b2c3d4\",\"project_directory\":\"/home/user/project\",\"issue_number\":\"42\",\"execution_time_seconds\":330.5,\"exit_code\":0,\"success\":true,\"files_created\":[\"specs/issue-42-plan.md\"],\"total_cost_usd\":0.42,\"num_agent_calls\":3,\"claude_mode\":\"apikey\"}"
+      },
+      {
+        "line": "{\"timestamp\":\"2025-01-15T11:00:00.000+0000\",\"event_type\":\"end\",\"level\":\"error\",\"message\":\"Workflow failed: ValueError - Invalid branch name\",\"script_name\":\"adw_build_iso.py\",\"adw_id\":\"e5f6g7h8\",\"execution_time_seconds\":5.2,\"exit_code\":1,\"success\":false,\"error_type\":\"ValueError\",\"error_message\":\"Invalid branch name\"}"
+      }
+    ]
+  }
+}

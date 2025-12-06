@@ -57,6 +57,7 @@ from adw_modules.data_types import (
 from adw_modules.agent import execute_template
 from adw_modules.r2_uploader import R2Uploader
 from adw_modules.worktree_ops import validate_worktree
+from adw_modules.execution_log import log_execution_start, log_execution_end
 
 # Agent name constants
 AGENT_REVIEWER = "reviewer"
@@ -92,7 +93,6 @@ def run_review(
 
     if not response.success:
         logger.error(f"Review failed: {response.output}")
-        # Return a failed result
         return ReviewResult(
             success=False,
             review_summary=f"Review failed: {response.output}",
@@ -101,7 +101,6 @@ def run_review(
             screenshot_urls=[],
         )
 
-    # Parse the review result
     try:
         result = parse_json(response.output, ReviewResult)
         return result
@@ -124,7 +123,6 @@ def create_review_patch_plan(
     working_dir: Optional[str] = None,
 ) -> AgentPromptResponse:
     """Create a patch plan for a review issue."""
-    # Build patch command with issue details
     patch_args = [
         f"Issue #{issue_num}: {issue.issue_description}",
         f"Resolution: {issue.issue_resolution}",
@@ -148,52 +146,35 @@ def upload_review_screenshots(
     worktree_path: str,
     logger: logging.Logger
 ) -> None:
-    """Upload screenshots to R2 and update review result with URLs.
-    
-    Args:
-        review_result: Review result containing screenshot paths
-        adw_id: ADW workflow ID
-        worktree_path: Path to the worktree
-        logger: Logger instance
-        
-    Note:
-        This modifies review_result in-place by setting screenshot_urls
-        and updating issue.screenshot_url fields.
-    """
+    """Upload screenshots to R2 and update review result with URLs."""
     if not review_result.screenshots:
         return
-        
+
     logger.info(f"Uploading {len(review_result.screenshots)} screenshots")
     uploader = R2Uploader(logger)
-    
+
     screenshot_urls = []
     for local_path in review_result.screenshots:
-        # Convert relative path to absolute path within worktree
         abs_path = os.path.join(worktree_path, local_path)
-        
+
         if not os.path.exists(abs_path):
             logger.warning(f"Screenshot not found: {abs_path}")
             continue
-        
-        # Upload with a nice path
+
         remote_path = f"adw/{adw_id}/review/{os.path.basename(local_path)}"
         url = uploader.upload_file(abs_path, remote_path)
-        
+
         if url:
             screenshot_urls.append(url)
             logger.info(f"Uploaded screenshot to: {url}")
         else:
             logger.error(f"Failed to upload screenshot: {local_path}")
-            # Fallback to local path if upload fails
             screenshot_urls.append(local_path)
-    
-    # Update review result with URLs
+
     review_result.screenshot_urls = screenshot_urls
-    
-    # Update issues with their screenshot URLs
+
     for issue in review_result.review_issues:
         if issue.screenshot_path:
-            # Find corresponding URL
             for i, local_path in enumerate(review_result.screenshots):
                 if local_path == issue.screenshot_path and i < len(screenshot_urls):
                     issue.screenshot_url = screenshot_urls[i]
@@ -207,15 +188,7 @@ def resolve_blocker_issues(
     worktree_path: str,
     logger: logging.Logger
 ) -> None:
-    """Resolve blocker issues by creating and implementing patches.
-    
-    Args:
-        blocker_issues: List of blocker issues to resolve
-        issue_number: GitHub issue number
-        adw_id: ADW workflow ID
-        worktree_path: Path to the worktree
-        logger: Logger instance
-    """
+    """Resolve blocker issues by creating and implementing patches."""
     logger.info(f"Found {len(blocker_issues)} blocker issues, attempting resolution")
     make_issue_comment(
         issue_number,
@@ -225,52 +198,39 @@ def resolve_blocker_issues(
             f"🔧 Found {len(blocker_issues)} blocker issues, creating resolution plans..."
         )
     )
-    
-    # Create and implement patches for each blocker
+
     for i, issue in enumerate(blocker_issues, 1):
         logger.info(f"Resolving blocker {i}/{len(blocker_issues)}: {issue.issue_description}")
-        
-        # Create patch plan
+
         plan_response = create_review_patch_plan(issue, i, adw_id, logger, working_dir=worktree_path)
-        
+
         if not plan_response.success:
             logger.error(f"Failed to create patch plan: {plan_response.output}")
             continue
-        
-        # Extract plan file path
+
         plan_file = plan_response.output.strip()
-        
-        # Implement the patch
+
         logger.info(f"Implementing patch from plan: {plan_file}")
         impl_response = implement_plan(plan_file, adw_id, logger, working_dir=worktree_path)
-        
+
         if not impl_response.success:
             logger.error(f"Failed to implement patch: {impl_response.output}")
             continue
-        
+
         logger.info(f"Successfully resolved blocker {i}")
 
 
 def build_review_summary(review_result: ReviewResult) -> str:
-    """Build a formatted summary of the review results for GitHub comment.
-    
-    Args:
-        review_result: The review result containing summary, issues, and screenshot URLs
-        
-    Returns:
-        Formatted markdown string for GitHub comment
-    """
+    """Build a formatted summary of the review results for GitHub comment."""
     summary_parts = [f"## 📊 Review Summary\n\n{review_result.review_summary}"]
-    
-    # Add review issues grouped by severity
+
     if review_result.review_issues:
         summary_parts.append("\n## 🔍 Issues Found")
-        
-        # Group by severity
+
         blockers = [i for i in review_result.review_issues if i.issue_severity == "blocker"]
         tech_debts = [i for i in review_result.review_issues if i.issue_severity == "tech_debt"]
         skippables = [i for i in review_result.review_issues if i.issue_severity == "skippable"]
-        
+
         if blockers:
             summary_parts.append(f"\n### 🚨 Blockers ({len(blockers)})")
             for issue in blockers:
@@ -278,7 +238,7 @@ def build_review_summary(review_result: ReviewResult) -> str:
                 summary_parts.append(f"  - Resolution: {issue.issue_resolution}")
                 if issue.screenshot_url and issue.screenshot_url.startswith("http"):
                     summary_parts.append(f"  - ![Issue Screenshot]({issue.screenshot_url})")
-        
+
         if tech_debts:
             summary_parts.append(f"\n### ⚠️ Tech Debt ({len(tech_debts)})")
             for issue in tech_debts:
@@ -286,7 +246,7 @@ def build_review_summary(review_result: ReviewResult) -> str:
                 summary_parts.append(f"  - Resolution: {issue.issue_resolution}")
                 if issue.screenshot_url and issue.screenshot_url.startswith("http"):
                     summary_parts.append(f"  - ![Issue Screenshot]({issue.screenshot_url})")
-        
+
         if skippables:
             summary_parts.append(f"\n### 💡 Skippable ({len(skippables)})")
             for issue in skippables:
@@ -294,251 +254,247 @@ def build_review_summary(review_result: ReviewResult) -> str:
                 summary_parts.append(f"  - Resolution: {issue.issue_resolution}")
                 if issue.screenshot_url and issue.screenshot_url.startswith("http"):
                     summary_parts.append(f"  - ![Issue Screenshot]({issue.screenshot_url})")
-    
-    # Add screenshots section
+
     if review_result.screenshot_urls:
         summary_parts.append(f"\n## 📸 Screenshots")
         summary_parts.append(f"Captured {len(review_result.screenshot_urls)} screenshots\n")
-        
-        # Use uploaded URLs to display as inline images
+
         for i, screenshot_url in enumerate(review_result.screenshot_urls):
             if screenshot_url.startswith("http"):
-                # Display as inline image
                 summary_parts.append(f"### Screenshot {i+1}")
                 summary_parts.append(f"![Screenshot {i+1}]({screenshot_url})\n")
             else:
-                # Fallback to showing path if not a URL
                 summary_parts.append(f"- Screenshot {i+1}: `{screenshot_url}`")
-    
+
     return "\n".join(summary_parts)
 
 
 def main():
     """Main entry point."""
-    # Load environment variables
     load_dotenv()
-    
-    # Check for --skip-resolution flag
+
     skip_resolution = "--skip-resolution" in sys.argv
     if skip_resolution:
         sys.argv.remove("--skip-resolution")
-    
-    # Parse command line args
-    # INTENTIONAL: adw-id is REQUIRED - we need it to find the worktree
+
     if len(sys.argv) < 3:
         print("Usage: uv run adw_review_iso.py <issue-number> <adw-id> [--skip-resolution]")
         print("\nError: adw-id is required to locate the worktree")
         print("Run adw_plan_iso.py or adw_patch_iso.py first to create the worktree")
         sys.exit(1)
-    
+
     issue_number = sys.argv[1]
     adw_id = sys.argv[2]
-    
-    # Try to load existing state
+
     temp_logger = setup_logger(adw_id, "adw_review_iso")
     state = ADWState.load(adw_id, temp_logger)
     if state:
-        # Found existing state - use the issue number from state if available
         issue_number = state.get("issue_number", issue_number)
         make_issue_comment(
             issue_number,
             f"{adw_id}_ops: 🔍 Found existing state - starting isolated review\n```json\n{json.dumps(state.data, indent=2)}\n```"
         )
     else:
-        # No existing state found
         logger = setup_logger(adw_id, "adw_review_iso")
         logger.error(f"No state found for ADW ID: {adw_id}")
         logger.error("Run adw_plan_iso.py or adw_patch_iso.py first to create the worktree and state")
         print(f"\nError: No state found for ADW ID: {adw_id}")
         print("Run adw_plan_iso.py or adw_patch_iso.py first to create the worktree and state")
         sys.exit(1)
-    
-    # Track that this ADW workflow has run
+
     state.append_adw_id("adw_review_iso")
-    
-    # Set up logger with ADW ID from command line
+
     logger = setup_logger(adw_id, "adw_review_iso")
     logger.info(f"ADW Review Iso starting - ID: {adw_id}, Issue: {issue_number}, Skip Resolution: {skip_resolution}")
-    
-    # Validate environment
-    check_env_vars(logger)
-    
-    # Validate worktree exists
-    valid, error = validate_worktree(adw_id, state)
-    if not valid:
-        logger.error(f"Worktree validation failed: {error}")
-        logger.error("Run adw_plan_iso.py or adw_patch_iso.py first")
-        make_issue_comment(
-            issue_number,
-            format_issue_message(adw_id, "ops", f"❌ Worktree validation failed: {error}\n"
-                               "Run adw_plan_iso.py or adw_patch_iso.py first")
-        )
-        sys.exit(1)
-    
-    # Get worktree path for explicit context
+
     worktree_path = state.get("worktree_path")
-    logger.info(f"Using worktree at: {worktree_path}")
-    
-    # Get port information for display
-    backend_port = state.get("backend_port", "9100")
-    frontend_port = state.get("frontend_port", "9200")
-    
-    make_issue_comment(
-        issue_number, 
-        format_issue_message(adw_id, "ops", f"✅ Starting isolated review phase\n"
-                           f"🏠 Worktree: {worktree_path}\n"
-                           f"🔌 Ports - Backend: {backend_port}, Frontend: {frontend_port}\n"
-                           f"🔧 Issue Resolution: {'Disabled' if skip_resolution else 'Enabled'}")
-    )
-    
-    # Find spec file from current branch (in worktree)
-    logger.info("Looking for spec file in worktree")
-    spec_file = find_spec_file(state, logger)
-    
-    if not spec_file:
-        error_msg = "Could not find spec file for review"
-        logger.error(error_msg)
-        make_issue_comment(
-            issue_number,
-            format_issue_message(adw_id, "ops", f"❌ {error_msg}")
-        )
-        sys.exit(1)
-    
-    logger.info(f"Found spec file: {spec_file}")
-    make_issue_comment(
-        issue_number,
-        format_issue_message(adw_id, "ops", f"📋 Found spec file: {spec_file}")
-    )
-    
-    # Run review with retry logic
-    review_attempt = 0
-    review_result = None
-    
-    while review_attempt < MAX_REVIEW_RETRY_ATTEMPTS:
-        review_attempt += 1
-        
-        # Run the review (executing in worktree)
-        logger.info(f"Running review (attempt {review_attempt}/{MAX_REVIEW_RETRY_ATTEMPTS})")
-        make_issue_comment(
-            issue_number,
-            format_issue_message(
-                adw_id,
-                AGENT_REVIEWER,
-                f"🔍 Reviewing implementation against spec (attempt {review_attempt}/{MAX_REVIEW_RETRY_ATTEMPTS})..."
-            )
-        )
-        
-        review_result = run_review(spec_file, adw_id, logger, working_dir=worktree_path)
-        
-        # Check if we have blocker issues
-        blocker_issues = [
-            issue for issue in review_result.review_issues 
-            if issue.issue_severity == "blocker"
-        ]
-        
-        # If no blockers or skip resolution, we're done
-        if not blocker_issues or skip_resolution:
-            break
-        
-        # We have blockers and need to resolve them
-        resolve_blocker_issues(blocker_issues, issue_number, adw_id, worktree_path, logger)
-        
-        # If this was the last attempt, break regardless
-        if review_attempt >= MAX_REVIEW_RETRY_ATTEMPTS - 1:
-            break
-        
-        # Otherwise, we'll retry the review
-        logger.info("Retrying review after resolving blockers")
-        make_issue_comment(
-            issue_number,
-            format_issue_message(
-                adw_id,
-                AGENT_REVIEWER,
-                "🔄 Retrying review after resolving blockers..."
-            )
-        )
-    
-    # Post review results
-    if review_result:
-        # Upload screenshots to R2 and update URLs
-        upload_review_screenshots(review_result, adw_id, worktree_path, logger)
-        
-        # Build and post the summary comment
-        summary = build_review_summary(review_result)
-        make_issue_comment(
-            issue_number,
-            format_issue_message(adw_id, AGENT_REVIEWER, summary)
-        )
-    
-    # Get repo information
-    try:
-        github_repo_url = get_repo_url()
-        repo_path = extract_repo_path(github_repo_url)
-    except ValueError as e:
-        logger.error(f"Error getting repository URL: {e}")
-        sys.exit(1)
-    
-    # Fetch issue data for commit message generation
-    logger.info("Fetching issue data for commit message")
-    issue = fetch_issue(issue_number, repo_path)
-    
-    # Get issue classification from state
-    issue_command = state.get("issue_class", "/feature")
-    
-    # Create commit message
-    logger.info("Creating review commit")
-    commit_msg, error = create_commit(AGENT_REVIEWER, issue, issue_command, adw_id, logger, worktree_path)
-    
-    if error:
-        logger.error(f"Error creating commit message: {error}")
-        make_issue_comment(
-            issue_number,
-            format_issue_message(adw_id, AGENT_REVIEWER, f"❌ Error creating commit message: {error}")
-        )
-        sys.exit(1)
-    
-    # Commit the review results (in worktree)
-    success, error = commit_changes(commit_msg, cwd=worktree_path)
-    
-    if not success:
-        logger.error(f"Error committing review: {error}")
-        make_issue_comment(
-            issue_number,
-            format_issue_message(adw_id, AGENT_REVIEWER, f"❌ Error committing review: {error}")
-        )
-        sys.exit(1)
-    
-    logger.info(f"Committed review: {commit_msg}")
-    make_issue_comment(
-        issue_number, format_issue_message(adw_id, AGENT_REVIEWER, "✅ Review committed")
-    )
-    
-    # Finalize git operations (push and PR)
-    # Note: This will work from the worktree context
-    finalize_git_operations(state, logger, cwd=worktree_path)
-    
-    logger.info("Isolated review phase completed successfully")
-
-    # Save final state
-    state.save("adw_review_iso")
-
-    # Post completion summary to issue
-    post_workflow_completion_summary(
-        issue_number=issue_number,
+    start_entry = log_execution_start(
+        script_name="adw_review_iso.py",
         adw_id=adw_id,
-        workflow_name="Review",
-        status="success",
-        artifacts={
-            "review_completed": "Implementation reviewed against specification",
-            "screenshots": "Captured (if applicable)"
-        },
-        next_steps=[
-            f"Review the review results and screenshots",
-            f"Check the worktree: `{worktree_path}`",
-            f"To run documentation phase: `uv run adws/adw_document_iso.py {issue_number} {adw_id}`"
-        ],
-        worktree_path=worktree_path
+        issue_number=issue_number,
+        worktree_path=worktree_path,
     )
+
+    exit_code = 0
+    success = True
+    error_info = None
+
+    try:
+        check_env_vars(logger)
+
+        valid, error = validate_worktree(adw_id, state)
+        if not valid:
+            logger.error(f"Worktree validation failed: {error}")
+            logger.error("Run adw_plan_iso.py or adw_patch_iso.py first")
+            make_issue_comment(
+                issue_number,
+                format_issue_message(adw_id, "ops", f"❌ Worktree validation failed: {error}\n"
+                                   "Run adw_plan_iso.py or adw_patch_iso.py first")
+            )
+            sys.exit(1)
+
+        worktree_path = state.get("worktree_path")
+        logger.info(f"Using worktree at: {worktree_path}")
+
+        backend_port = state.get("backend_port", "9100")
+        frontend_port = state.get("frontend_port", "9200")
+
+        make_issue_comment(
+            issue_number,
+            format_issue_message(adw_id, "ops", f"✅ Starting isolated review phase\n"
+                               f"🏠 Worktree: {worktree_path}\n"
+                               f"🔌 Ports - Backend: {backend_port}, Frontend: {frontend_port}\n"
+                               f"🔧 Issue Resolution: {'Disabled' if skip_resolution else 'Enabled'}")
+        )
+
+        logger.info("Looking for spec file in worktree")
+        spec_file = find_spec_file(state, logger)
+
+        if not spec_file:
+            error_msg = "Could not find spec file for review"
+            logger.error(error_msg)
+            make_issue_comment(
+                issue_number,
+                format_issue_message(adw_id, "ops", f"❌ {error_msg}")
+            )
+            sys.exit(1)
+
+        logger.info(f"Found spec file: {spec_file}")
+        make_issue_comment(
+            issue_number,
+            format_issue_message(adw_id, "ops", f"📋 Found spec file: {spec_file}")
+        )
+
+        review_attempt = 0
+        review_result = None
+
+        while review_attempt < MAX_REVIEW_RETRY_ATTEMPTS:
+            review_attempt += 1
+
+            logger.info(f"Running review (attempt {review_attempt}/{MAX_REVIEW_RETRY_ATTEMPTS})")
+            make_issue_comment(
+                issue_number,
+                format_issue_message(
+                    adw_id,
+                    AGENT_REVIEWER,
+                    f"🔍 Reviewing implementation against spec (attempt {review_attempt}/{MAX_REVIEW_RETRY_ATTEMPTS})..."
+                )
+            )
+
+            review_result = run_review(spec_file, adw_id, logger, working_dir=worktree_path)
+
+            blocker_issues = [
+                issue for issue in review_result.review_issues
+                if issue.issue_severity == "blocker"
+            ]
+
+            if not blocker_issues or skip_resolution:
+                break
+
+            resolve_blocker_issues(blocker_issues, issue_number, adw_id, worktree_path, logger)
+
+            if review_attempt >= MAX_REVIEW_RETRY_ATTEMPTS - 1:
+                break
+
+            logger.info("Retrying review after resolving blockers")
+            make_issue_comment(
+                issue_number,
+                format_issue_message(
+                    adw_id,
+                    AGENT_REVIEWER,
+                    "🔄 Retrying review after resolving blockers..."
+                )
+            )
+
+        if review_result:
+            upload_review_screenshots(review_result, adw_id, worktree_path, logger)
+            summary = build_review_summary(review_result)
+            make_issue_comment(
+                issue_number,
+                format_issue_message(adw_id, AGENT_REVIEWER, summary)
+            )
+
+        try:
+            github_repo_url = get_repo_url()
+            repo_path = extract_repo_path(github_repo_url)
+        except ValueError as e:
+            logger.error(f"Error getting repository URL: {e}")
+            sys.exit(1)
+
+        logger.info("Fetching issue data for commit message")
+        issue = fetch_issue(issue_number, repo_path)
+
+        issue_command = state.get("issue_class", "/feature")
+
+        logger.info("Creating review commit")
+        commit_msg, error = create_commit(AGENT_REVIEWER, issue, issue_command, adw_id, logger, worktree_path)
+
+        if error:
+            logger.error(f"Error creating commit message: {error}")
+            make_issue_comment(
+                issue_number,
+                format_issue_message(adw_id, AGENT_REVIEWER, f"❌ Error creating commit message: {error}")
+            )
+            sys.exit(1)
+
+        commit_success, error = commit_changes(commit_msg, cwd=worktree_path)
+
+        if not commit_success:
+            logger.error(f"Error committing review: {error}")
+            make_issue_comment(
+                issue_number,
+                format_issue_message(adw_id, AGENT_REVIEWER, f"❌ Error committing review: {error}")
+            )
+            sys.exit(1)
+
+        logger.info(f"Committed review: {commit_msg}")
+        make_issue_comment(
+            issue_number, format_issue_message(adw_id, AGENT_REVIEWER, "✅ Review committed")
+        )
+
+        finalize_git_operations(state, logger, cwd=worktree_path)
+
+        logger.info("Isolated review phase completed successfully")
+
+        state.save("adw_review_iso")
+
+        post_workflow_completion_summary(
+            issue_number=issue_number,
+            adw_id=adw_id,
+            workflow_name="Review",
+            status="success",
+            artifacts={
+                "review_completed": "Implementation reviewed against specification",
+                "screenshots": "Captured (if applicable)"
+            },
+            next_steps=[
+                f"Review the review results and screenshots",
+                f"Check the worktree: `{worktree_path}`",
+                f"To run documentation phase: `uv run adws/adw_document_iso.py {issue_number} {adw_id}`"
+            ],
+            worktree_path=worktree_path
+        )
+
+    except SystemExit as e:
+        exit_code = e.code if isinstance(e.code, int) else 1
+        success = exit_code == 0
+        if not success:
+            error_info = ("SystemExit", f"Script exited with code {exit_code}")
+        raise
+    except Exception as e:
+        exit_code = 1
+        success = False
+        error_info = (type(e).__name__, str(e))
+        raise
+    finally:
+        log_execution_end(
+            start_entry=start_entry,
+            exit_code=exit_code,
+            success=success,
+            error_type=error_info[0] if error_info else None,
+            error_message=error_info[1] if error_info else None,
+            model_set=state.get("model_set") if state else None,
+        )
 
 
 if __name__ == "__main__":

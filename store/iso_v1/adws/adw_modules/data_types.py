@@ -199,6 +199,9 @@ class ClaudeCodeResultMessage(BaseModel):
     result: str
     session_id: str
     total_cost_usd: float
+    # Optional token fields (may not be present in all Claude Code versions)
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
 
 
 class TestResult(BaseModel):

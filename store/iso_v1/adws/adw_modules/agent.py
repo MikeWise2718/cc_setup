@@ -18,6 +18,7 @@ from .data_types import (
     ModelSet,
     RetryCode,
 )
+from .execution_log import track_agent_execution
 
 # Load environment variables
 load_dotenv()
@@ -386,6 +387,10 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
                 # For error cases, truncate the output to prevent JSONL blobs
                 if is_error and len(result_text) > 1000:
                     result_text = truncate_output(result_text, max_length=800)
+
+                # Track successful agent execution for logging
+                if not is_error:
+                    track_agent_execution(request.adw_id, request.output_file)
 
                 return AgentPromptResponse(
                     output=result_text,

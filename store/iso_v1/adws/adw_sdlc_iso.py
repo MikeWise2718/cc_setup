@@ -28,6 +28,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from adw_modules.workflow_ops import ensure_adw_id
 from adw_modules.github import make_issue_comment
 from adw_modules.utils import get_local_timestamp
+from adw_modules.execution_log import (
+    log_execution_start,
+    log_execution_end,
+    track_subprocess_start,
+    track_subprocess_end,
+)
 
 
 def post_github_comment(issue_number: str, message: str):
@@ -88,129 +94,183 @@ def main():
     adw_id = ensure_adw_id(issue_number, adw_id)
     print(f"Using ADW ID: {adw_id}")
 
-    # Post workflow start notification
-    timestamp = get_local_timestamp()
-    post_github_comment(
-        issue_number,
-        f"🤖 **ADW Complete SDLC Workflow Started**\n\n"
-        f"**Timestamp:** {timestamp}\n"
-        f"**ADW ID:** `{adw_id}`\n"
-        f"**Workflow:** Plan → Build → Test → Review → Document\n"
-        f"**E2E Tests:** {'Skipped' if skip_e2e else 'Included'}\n"
-        f"**Auto-Resolution:** {'Disabled' if skip_resolution else 'Enabled'}\n\n"
-        f"📋 Phase 1/5: Planning..."
+    # Start execution logging
+    start_entry = log_execution_start(
+        script_name="adw_sdlc_iso.py",
+        adw_id=adw_id,
+        issue_number=issue_number,
     )
 
-    # Get the directory where this script is located
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    exit_code = 0
+    success = True
+    error_info = None
+    subprocesses = []
 
-    # ===== PHASE 1: PLAN =====
-    plan_cmd = ["uv", "run", os.path.join(script_dir, "adw_plan_iso.py"), issue_number, adw_id]
-    print(f"\n=== ISOLATED PLAN PHASE ===")
-    print(f"Running: {' '.join(plan_cmd)}")
-    plan = subprocess.run(plan_cmd)
-
-    if plan.returncode != 0:
-        post_phase_error(issue_number, adw_id, "Plan", 1, 5, plan.returncode, "plan")
-        sys.exit(1)
-
-    timestamp = get_local_timestamp()
-    post_github_comment(issue_number, f"✅ **Plan Phase Completed** ({timestamp})\n\n🔨 Phase 2/5: Building implementation...")
-
-    # ===== PHASE 2: BUILD =====
-    build_cmd = ["uv", "run", os.path.join(script_dir, "adw_build_iso.py"), issue_number, adw_id]
-    print(f"\n=== ISOLATED BUILD PHASE ===")
-    print(f"Running: {' '.join(build_cmd)}")
-    build = subprocess.run(build_cmd)
-
-    if build.returncode != 0:
-        post_phase_error(issue_number, adw_id, "Build", 2, 5, build.returncode, "build")
-        sys.exit(1)
-
-    timestamp = get_local_timestamp()
-    post_github_comment(issue_number, f"✅ **Build Phase Completed** ({timestamp})\n\n🧪 Phase 3/5: Running tests...")
-
-    # ===== PHASE 3: TEST =====
-    test_cmd = ["uv", "run", os.path.join(script_dir, "adw_test_iso.py"), issue_number, adw_id, "--skip-e2e"]
-
-    print(f"\n=== ISOLATED TEST PHASE ===")
-    print(f"Running: {' '.join(test_cmd)}")
-    test = subprocess.run(test_cmd)
-
-    if test.returncode != 0:
+    try:
+        # Post workflow start notification
         timestamp = get_local_timestamp()
-        warning_msg = (
-            f"⚠️ **Test Phase Had Failures** ({timestamp})\n\n"
+        post_github_comment(
+            issue_number,
+            f"🤖 **ADW Complete SDLC Workflow Started**\n\n"
+            f"**Timestamp:** {timestamp}\n"
             f"**ADW ID:** `{adw_id}`\n"
-            f"**Phase:** 3/5 - Testing\n\n"
-            f"**Warning:** Some tests failed, but continuing with review phase.\n\n"
-            f"**Logs:** Check `agents/{adw_id}/tester/raw_output.jsonl` for details.\n\n"
-            f"🔍 Phase 4/5: Reviewing implementation..."
+            f"**Workflow:** Plan → Build → Test → Review → Document\n"
+            f"**E2E Tests:** {'Skipped' if skip_e2e else 'Included'}\n"
+            f"**Auto-Resolution:** {'Disabled' if skip_resolution else 'Enabled'}\n\n"
+            f"📋 Phase 1/5: Planning..."
         )
-        print(warning_msg)
-        post_github_comment(issue_number, warning_msg)
-    else:
+
+        # Get the directory where this script is located
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # ===== PHASE 1: PLAN =====
+        plan_cmd = ["uv", "run", os.path.join(script_dir, "adw_plan_iso.py"), issue_number, adw_id]
+        print(f"\n=== ISOLATED PLAN PHASE ===")
+        print(f"Running: {' '.join(plan_cmd)}")
+
+        plan_invocation = track_subprocess_start("adw_plan_iso.py")
+        plan = subprocess.run(plan_cmd)
+        plan_invocation = track_subprocess_end(plan_invocation, plan.returncode)
+        subprocesses.append(plan_invocation)
+
+        if plan.returncode != 0:
+            post_phase_error(issue_number, adw_id, "Plan", 1, 5, plan.returncode, "plan")
+            sys.exit(1)
+
         timestamp = get_local_timestamp()
-        post_github_comment(issue_number, f"✅ **Test Phase Completed** ({timestamp})\n\n🔍 Phase 4/5: Reviewing implementation...")
+        post_github_comment(issue_number, f"✅ **Plan Phase Completed** ({timestamp})\n\n🔨 Phase 2/5: Building implementation...")
 
-    # ===== PHASE 4: REVIEW =====
-    review_cmd = ["uv", "run", os.path.join(script_dir, "adw_review_iso.py"), issue_number, adw_id]
-    if skip_resolution:
-        review_cmd.append("--skip-resolution")
+        # ===== PHASE 2: BUILD =====
+        build_cmd = ["uv", "run", os.path.join(script_dir, "adw_build_iso.py"), issue_number, adw_id]
+        print(f"\n=== ISOLATED BUILD PHASE ===")
+        print(f"Running: {' '.join(build_cmd)}")
 
-    print(f"\n=== ISOLATED REVIEW PHASE ===")
-    print(f"Running: {' '.join(review_cmd)}")
-    review = subprocess.run(review_cmd)
+        build_invocation = track_subprocess_start("adw_build_iso.py")
+        build = subprocess.run(build_cmd)
+        build_invocation = track_subprocess_end(build_invocation, build.returncode)
+        subprocesses.append(build_invocation)
 
-    if review.returncode != 0:
-        post_phase_error(issue_number, adw_id, "Review", 4, 5, review.returncode, "review")
-        sys.exit(1)
+        if build.returncode != 0:
+            post_phase_error(issue_number, adw_id, "Build", 2, 5, build.returncode, "build")
+            sys.exit(1)
 
-    timestamp = get_local_timestamp()
-    post_github_comment(issue_number, f"✅ **Review Phase Completed** ({timestamp})\n\n📝 Phase 5/5: Generating documentation...")
+        timestamp = get_local_timestamp()
+        post_github_comment(issue_number, f"✅ **Build Phase Completed** ({timestamp})\n\n🧪 Phase 3/5: Running tests...")
 
-    # ===== PHASE 5: DOCUMENT =====
-    document_cmd = ["uv", "run", os.path.join(script_dir, "adw_document_iso.py"), issue_number, adw_id]
-    print(f"\n=== ISOLATED DOCUMENTATION PHASE ===")
-    print(f"Running: {' '.join(document_cmd)}")
-    document = subprocess.run(document_cmd)
+        # ===== PHASE 3: TEST =====
+        test_cmd = ["uv", "run", os.path.join(script_dir, "adw_test_iso.py"), issue_number, adw_id, "--skip-e2e"]
 
-    if document.returncode != 0:
-        post_phase_error(issue_number, adw_id, "Documentation", 5, 5, document.returncode, "document")
-        sys.exit(1)
+        print(f"\n=== ISOLATED TEST PHASE ===")
+        print(f"Running: {' '.join(test_cmd)}")
 
-    # ===== WORKFLOW COMPLETE =====
-    timestamp = get_local_timestamp()
-    test_status = "✅ All tests passed" if test.returncode == 0 else "⚠️ Some tests failed (see warnings above)"
+        test_invocation = track_subprocess_start("adw_test_iso.py")
+        test = subprocess.run(test_cmd)
+        test_invocation = track_subprocess_end(test_invocation, test.returncode)
+        subprocesses.append(test_invocation)
 
-    post_github_comment(
-        issue_number,
-        f"✅ **ADW Complete SDLC Workflow Finished**\n\n"
-        f"**Timestamp:** {timestamp}\n"
-        f"**ADW ID:** `{adw_id}`\n"
-        f"**Status:** All phases completed! 🎉\n\n"
-        f"**Phases Completed:**\n"
-        f"- ✅ Planning\n"
-        f"- ✅ Implementation\n"
-        f"- {test_status}\n"
-        f"- ✅ Code Review\n"
-        f"- ✅ Documentation\n\n"
-        f"**Deliverables:**\n"
-        f"- Implementation in worktree: `trees/{adw_id}/`\n"
-        f"- Pull request created with all changes\n"
-        f"- Code reviewed and validated\n"
-        f"- Documentation updated\n\n"
-        f"**Next Steps:**\n"
-        f"- Review and merge the pull request\n"
-        f"- The implementation is production-ready!\n"
-        f"- To clean up worktree: `./scripts/purge_tree.sh {adw_id}`"
-    )
+        if test.returncode != 0:
+            timestamp = get_local_timestamp()
+            warning_msg = (
+                f"⚠️ **Test Phase Had Failures** ({timestamp})\n\n"
+                f"**ADW ID:** `{adw_id}`\n"
+                f"**Phase:** 3/5 - Testing\n\n"
+                f"**Warning:** Some tests failed, but continuing with review phase.\n\n"
+                f"**Logs:** Check `agents/{adw_id}/tester/raw_output.jsonl` for details.\n\n"
+                f"🔍 Phase 4/5: Reviewing implementation..."
+            )
+            print(warning_msg)
+            post_github_comment(issue_number, warning_msg)
+        else:
+            timestamp = get_local_timestamp()
+            post_github_comment(issue_number, f"✅ **Test Phase Completed** ({timestamp})\n\n🔍 Phase 4/5: Reviewing implementation...")
 
-    print(f"\n=== ISOLATED SDLC COMPLETED ===")
-    print(f"ADW ID: {adw_id}")
-    print(f"All phases completed successfully!")
-    print(f"\nWorktree location: trees/{adw_id}/")
-    print(f"To clean up: ./scripts/purge_tree.sh {adw_id}")
+        # ===== PHASE 4: REVIEW =====
+        review_cmd = ["uv", "run", os.path.join(script_dir, "adw_review_iso.py"), issue_number, adw_id]
+        if skip_resolution:
+            review_cmd.append("--skip-resolution")
+
+        print(f"\n=== ISOLATED REVIEW PHASE ===")
+        print(f"Running: {' '.join(review_cmd)}")
+
+        review_invocation = track_subprocess_start("adw_review_iso.py")
+        review = subprocess.run(review_cmd)
+        review_invocation = track_subprocess_end(review_invocation, review.returncode)
+        subprocesses.append(review_invocation)
+
+        if review.returncode != 0:
+            post_phase_error(issue_number, adw_id, "Review", 4, 5, review.returncode, "review")
+            sys.exit(1)
+
+        timestamp = get_local_timestamp()
+        post_github_comment(issue_number, f"✅ **Review Phase Completed** ({timestamp})\n\n📝 Phase 5/5: Generating documentation...")
+
+        # ===== PHASE 5: DOCUMENT =====
+        document_cmd = ["uv", "run", os.path.join(script_dir, "adw_document_iso.py"), issue_number, adw_id]
+        print(f"\n=== ISOLATED DOCUMENTATION PHASE ===")
+        print(f"Running: {' '.join(document_cmd)}")
+
+        document_invocation = track_subprocess_start("adw_document_iso.py")
+        document = subprocess.run(document_cmd)
+        document_invocation = track_subprocess_end(document_invocation, document.returncode)
+        subprocesses.append(document_invocation)
+
+        if document.returncode != 0:
+            post_phase_error(issue_number, adw_id, "Documentation", 5, 5, document.returncode, "document")
+            sys.exit(1)
+
+        # ===== WORKFLOW COMPLETE =====
+        timestamp = get_local_timestamp()
+        test_status = "✅ All tests passed" if test.returncode == 0 else "⚠️ Some tests failed (see warnings above)"
+
+        post_github_comment(
+            issue_number,
+            f"✅ **ADW Complete SDLC Workflow Finished**\n\n"
+            f"**Timestamp:** {timestamp}\n"
+            f"**ADW ID:** `{adw_id}`\n"
+            f"**Status:** All phases completed! 🎉\n\n"
+            f"**Phases Completed:**\n"
+            f"- ✅ Planning\n"
+            f"- ✅ Implementation\n"
+            f"- {test_status}\n"
+            f"- ✅ Code Review\n"
+            f"- ✅ Documentation\n\n"
+            f"**Deliverables:**\n"
+            f"- Implementation in worktree: `trees/{adw_id}/`\n"
+            f"- Pull request created with all changes\n"
+            f"- Code reviewed and validated\n"
+            f"- Documentation updated\n\n"
+            f"**Next Steps:**\n"
+            f"- Review and merge the pull request\n"
+            f"- The implementation is production-ready!\n"
+            f"- To clean up worktree: `./scripts/purge_tree.sh {adw_id}`"
+        )
+
+        print(f"\n=== ISOLATED SDLC COMPLETED ===")
+        print(f"ADW ID: {adw_id}")
+        print(f"All phases completed successfully!")
+        print(f"\nWorktree location: trees/{adw_id}/")
+        print(f"To clean up: ./scripts/purge_tree.sh {adw_id}")
+
+    except SystemExit as e:
+        exit_code = e.code if isinstance(e.code, int) else 1
+        success = exit_code == 0
+        if not success:
+            error_info = ("SystemExit", f"Script exited with code {exit_code}")
+        raise
+    except Exception as e:
+        exit_code = 1
+        success = False
+        error_info = (type(e).__name__, str(e))
+        raise
+    finally:
+        log_execution_end(
+            start_entry=start_entry,
+            exit_code=exit_code,
+            success=success,
+            error_type=error_info[0] if error_info else None,
+            error_message=error_info[1] if error_info else None,
+            subprocesses=subprocesses,
+        )
 
 
 if __name__ == "__main__":
